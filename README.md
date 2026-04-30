@@ -19,7 +19,7 @@
 
 ---
 
-### Installation (automatic setup)
+### Quick start
 
 ```bash
 npx @slkiser/opencode-quota init
@@ -28,24 +28,21 @@ npx @slkiser/opencode-quota init
 > [!IMPORTANT]
 > OpenCode `>= 1.4.3` and Node.js `>= 18` are required.
 
-The installer is append-only and preserves existing config values. It asks where to install, which quota UI to enable, whether providers should be auto-detected, which quota display style to use, how percentages should be labeled, and whether session input/output tokens should appear in quota displays. By default it writes quota settings to `opencode-quota/quota-toast.json` only; if you also need the legacy OpenCode `experimental.quotaToast` block, run `npx @slkiser/opencode-quota init --sync-legacy-config`.
+The installer is append-only: it adds the plugin, asks a few display/provider questions, and leaves existing values alone.
 
 After install:
 
 1. Restart OpenCode.
-2. Run `/quota_status`.
-3. Run `/quota`.
-4. If you enabled the sidebar, open the session sidebar and confirm the `Quota` panel appears.
+2. Run `/quota`.
+3. If something looks wrong, run `/quota_status`.
+4. If you enabled the sidebar, open the session sidebar and look for the `Quota` panel.
 
-For a terminal-only quota glance:
+Terminal-only check:
 
 ```bash
 npx @slkiser/opencode-quota show
-# or, if installed/on PATH:
 opencode-quota show --provider copilot
 ```
-
-`show` is quota-only: no token/cost reports or `models.dev` refresh. Installer `None (commands and terminal only)` disables toast/sidebar but keeps `/quota`, `/tokens_*`, and terminal `show`.
 
 ### Manual setup
 
@@ -67,9 +64,22 @@ If you also want the sidebar, add the same package to the `tui.json` or `tui.jso
 }
 ```
 
-Quota settings live in `opencode-quota/quota-toast.json` next to the OpenCode config file chosen by the installer (project or global). On load, OpenCode Quota reads that sidecar first and falls back to existing `experimental.quotaToast` settings in `opencode.json` / `opencode.jsonc` only when the sidecar is absent. Normal runtime/load does not create, re-add, or migrate `experimental.quotaToast`; use `init --sync-legacy-config` when you explicitly want the installer to also write/sync that legacy block. Quota settings do not live in `tui.json`.
+Quota settings go in `opencode-quota/quota-toast.json` next to the OpenCode config file you chose during install. Existing `experimental.quotaToast` settings still work when no sidecar file exists. Quota settings do not live in `tui.json`.
 
-### What plugin adds
+<details>
+<summary>Advanced: legacy config sync</summary>
+
+By default, the installer writes quota settings only to `opencode-quota/quota-toast.json`. If you also want it to write the legacy OpenCode block, run:
+
+```bash
+npx @slkiser/opencode-quota init --sync-legacy-config
+```
+
+This is only for users who intentionally want `experimental.quotaToast` mirrored into `opencode.json` / `opencode.jsonc`.
+
+</details>
+
+### What it adds
 
 - TUI sidebar panel with quota rows
 - Popup quota toasts after assistant responses
@@ -113,7 +123,7 @@ Quota settings live in `opencode-quota/quota-toast.json` next to the OpenCode co
 | NanoGPT                 | Usually automatic  | Existing OpenCode auth, global config, or env             | Remote API               |
 | OpenCode Go             | [Needs quick setup](#opencode-go-quick-setup) | Set workspace ID and `auth` cookie                        | Dashboard scraping       |
 
-For companion auth providers, put the companion plugin first and `@slkiser/opencode-quota` second. The companion plugin handles login or token storage; OpenCode Quota reads that auth state and renders quota.
+For companion providers, put the auth plugin first and `@slkiser/opencode-quota` second.
 
 Providers are auto-detected by default. To choose providers explicitly:
 
@@ -124,7 +134,7 @@ Providers are auto-detected by default. To choose providers explicitly:
 }
 ```
 
-### Display options
+### Common options
 
 Show every quota window instead of the default most-constrained window:
 
@@ -135,7 +145,7 @@ Show every quota window instead of the default most-constrained window:
 }
 ```
 
-Choose which OpenCode Go usage windows to display (default is all three; `rolling` displays as `5h`):
+Choose which OpenCode Go windows to display:
 
 ```jsonc
 // opencode-quota/quota-toast.json
@@ -183,7 +193,7 @@ Turn off popup toasts while keeping `/quota` and the sidebar:
 
 ### Anthropic quick setup
 
-Anthropic does not use a companion OpenCode plugin. Install Claude Code, authenticate it, and make sure `claude` is available on your `PATH`:
+Install Claude Code, authenticate it, and make sure `claude` is on your `PATH`:
 
 ```bash
 claude auth login
@@ -194,7 +204,7 @@ If Claude lives at a custom path, set `anthropicBinaryPath` in `opencode-quota/q
 
 ### Companion providers
 
-Some providers need an auth companion plugin installed separately. Add the companion plugin first and `@slkiser/opencode-quota` second in `opencode.json` or `opencode.jsonc`.
+Some providers need an auth companion plugin. Add the companion plugin first and `@slkiser/opencode-quota` second.
 
 <a id="cursor-quick-setup"></a>
 
@@ -258,7 +268,7 @@ Add both plugins to `opencode.json`, with the Antigravity auth plugin first:
 
 Companion plugin: [`opencode-gemini-auth`](https://github.com/jenslys/opencode-gemini-auth#readme)
 
-Add both plugins to `opencode.json`, with the Gemini auth plugin first. If you manually choose providers, include `google-gemini-cli` in `opencode-quota/quota-toast.json`:
+Add both plugins to `opencode.json`, with the Gemini auth plugin first:
 
 ```jsonc
 // opencode.json
@@ -268,18 +278,13 @@ Add both plugins to `opencode.json`, with the Gemini auth plugin first. If you m
 }
 ```
 
-```jsonc
-// opencode-quota/quota-toast.json
-{
-  "enabledProviders": ["google-gemini-cli"]
-}
-```
-
 Then authenticate Google once:
 
 ```bash
 opencode auth login --provider google
 ```
+
+If you use manual provider selection, include `google-gemini-cli` in `enabledProviders`.
 
 ### OpenCode Go
 
@@ -292,9 +297,9 @@ export OPENCODE_GO_WORKSPACE_ID="your-workspace-id"
 export OPENCODE_GO_AUTH_COOKIE="your-auth-cookie"
 ```
 
-The provider can report three usage windows — **5h** rolling, **Weekly**, and **Monthly** — and emits whichever dashboard windows are available in that order. Filter displayed windows with `opencodeGoWindows` in `opencode-quota/quota-toast.json` (`rolling`, `weekly`, `monthly`); non-default subsets report missing selected dashboard fields, while default/all-windows mode shows available windows and diagnostics indicate what was found.
+OpenCode Go can show **5h**, **Weekly**, and **Monthly** windows. Use `opencodeGoWindows` in `opencode-quota/quota-toast.json` to choose a subset.
 
-Environment variables take precedence over the optional `opencode-go.json` config file. Run `/quota_status` to see the exact paths checked on your machine.
+Environment variables take precedence over the optional `opencode-go.json` file. Run `/quota_status` to see the exact paths checked.
 
 ### Troubleshooting
 
@@ -327,8 +332,6 @@ Run `/quota_status` and check the Anthropic section.
 <summary><strong>GitHub Copilot</strong></summary>
 
 Run `/quota_status` and check `copilot_quota_auth`, `billing_mode`, `billing_scope`, and `quota_api`.
-
-For personal Copilot OAuth quota, the plugin uses GitHub's reported premium-interaction quota fields when available. If that specific quota payload marks premium interactions as unlimited, quota output renders `Unlimited` instead of a synthetic used/total ratio.
 
 | Symptom | Fix |
 | --- | --- |
