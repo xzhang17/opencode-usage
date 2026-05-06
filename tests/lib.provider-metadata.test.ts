@@ -99,6 +99,13 @@ describe("provider-metadata", () => {
         quota: "remote_api",
       },
       {
+        id: "zhipu",
+        autoSetup: "yes",
+        authentication: "opencode_auth_api_key",
+        authFallbacks: ["env_api_key", "global_opencode_config"],
+        quota: "remote_api",
+      },
+      {
         id: "nanogpt",
         autoSetup: "usually",
         authentication: "opencode_auth_api_key",

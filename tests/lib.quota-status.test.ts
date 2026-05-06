@@ -111,6 +111,16 @@ const zaiMocks = vi.hoisted(() => ({
   queryZaiQuota: vi.fn(async () => null),
 }));
 
+const zhipuMocks = vi.hoisted(() => ({
+  getZhipuAuthDiagnostics: vi.fn(async () => ({
+    state: "none" as const,
+    source: null,
+    checkedPaths: [],
+    authPaths: ["/tmp/auth.json"],
+  })),
+  resolveZhipuAuthCached: vi.fn(async () => ({ state: "none" as const })),
+}));
+
 const nanoGptMocks = vi.hoisted(() => ({
   getNanoGptKeyDiagnostics: vi.fn(async () => ({
     configured: false,
@@ -290,6 +300,15 @@ vi.mock("../src/lib/zai-auth.js", () => ({
 
 vi.mock("../src/lib/zai.js", () => ({
   queryZaiQuota: zaiMocks.queryZaiQuota,
+}));
+
+vi.mock("../src/lib/zhipu-auth.js", () => ({
+  DEFAULT_ZHIPU_AUTH_CACHE_MAX_AGE_MS: 5_000,
+  getZhipuAuthDiagnostics: zhipuMocks.getZhipuAuthDiagnostics,
+}));
+
+vi.mock("../src/lib/zhipu.js", () => ({
+  queryZhipuQuota: vi.fn(async () => null),
 }));
 
 vi.mock("../src/lib/cursor-detection.js", () => ({
@@ -1753,26 +1772,27 @@ describe("buildQuotaStatusReport", () => {
       .join("\n");
     expect(titles).toMatchInlineSnapshot(`
       "toast:
-      paths:
-      openai:
-      anthropic:
-      cursor:
-      minimax:
-      kimi:
-      opencode_go:
-      zai:
-      synthetic:
-      chutes:
-      crof:
-      nanogpt:
-      copilot_quota_auth:
-      google_antigravity:
-      google_gemini_cli:
-      storage:
-      pricing_snapshot:
-      supported_providers_pricing:
-      unpriced_models:
-      unknown_pricing:"
+paths:
+openai:
+anthropic:
+cursor:
+minimax:
+kimi:
+opencode_go:
+zai:
+zhipu:
+synthetic:
+chutes:
+crof:
+nanogpt:
+copilot_quota_auth:
+google_antigravity:
+google_gemini_cli:
+storage:
+pricing_snapshot:
+supported_providers_pricing:
+unpriced_models:
+unknown_pricing:"
     `);
   });
 });
