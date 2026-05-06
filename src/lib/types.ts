@@ -121,7 +121,7 @@ export interface QuotaToastConfig {
   /** TUI sidebar panel visibility when the TUI plugin is installed. */
   tuiSidebarPanel: TuiSidebarPanelConfig;
 
-  /** Opt-in compact quota/status text for future TUI prompt/home surfaces. */
+  /** Opt-in compact quota/status text for TUI prompt/home surfaces. */
   tuiCompactStatus: TuiCompactStatusConfig;
 
   /** Responsive toast layout breakpoints (not used by the fixed-width TUI sidebar). */

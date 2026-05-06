@@ -15,7 +15,7 @@
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" /></a>
 </p>
 
-[![OpenCode Quota sidebar](https://shawnkiser.com/opencode-quota/sidebar.webp)](https://github.com/slkiser/opencode-quota)
+[![OpenCode Quota sidebar](https://shawnkiser.com/opencode-quota/opencode-quota-sidebar.webp)](https://github.com/slkiser/opencode-quota)
 
 ---
 
@@ -47,7 +47,7 @@ The installer adds missing plugin/config entries and keeps your unrelated settin
 2. Run `/quota`.
 3. If something looks wrong, run `/quota_status`.
 4. If you enabled the Sidebar panel, open the session sidebar and look for `Quota`.
-5. If you enabled Compact status line, look for the home-bottom quota line.
+5. If you enabled Compact status line, look for the home-bottom quota line and the chat/session prompt quota line.
 
 ### Terminal-only check
 
@@ -75,10 +75,10 @@ opencode-quota show --provider copilot
 <table>
   <tr>
     <td width="50%">
-      <img src="https://shawnkiser.com/opencode-quota/sidebar.webp" alt="OpenCode Quota TUI sidebar panel" />
+      <img src="https://shawnkiser.com/opencode-quota/opencode-quota-sidebar.webp" alt="OpenCode Quota TUI sidebar panel" />
     </td>
     <td width="50%">
-      <img src="https://shawnkiser.com/opencode-quota/toast.webp" alt="OpenCode Quota popup toast" />
+      <img src="https://shawnkiser.com/opencode-quota/opencode-quota-toast.webp" alt="OpenCode Quota popup toast" />
     </td>
   </tr>
   <tr>
@@ -87,10 +87,10 @@ opencode-quota show --provider copilot
   </tr>
   <tr>
     <td width="50%">
-      <img src="https://shawnkiser.com/opencode-quota/status.webp" alt="OpenCode Quota TUI status line" />
+      <img src="https://shawnkiser.com/opencode-quota/opencode-quota-statusbar.webp" alt="OpenCode Quota TUI status line" />
     </td>
     <td width="50%">
-      <img src="https://shawnkiser.com/opencode-quota/token.webp" alt="OpenCode Quota token report" />
+      <img src="https://shawnkiser.com/opencode-quota/opencode-quota-tokens-command.webp" alt="OpenCode Quota token report" />
     </td>
   </tr>
   <tr>
@@ -163,8 +163,10 @@ All UI surfaces use the same quota data. Put these settings in `opencode-quota/q
 | --- | --- | --- |
 | Sidebar panel | `tuiSidebarPanel.enabled: true` | Full `Quota` panel in OpenCode's session sidebar. Requires the TUI plugin entry above. |
 | Toast | `enableToast: true` | Popup toast after idle/question/compact events. Requires the server plugin entry above. |
-| Compact status line | `tuiCompactStatus.enabled: true` | Short text-only quota line in TUI status locations, for example `Copilot 94% | OpenAI Pro 5h 100%, 7d 100%`. Requires the TUI plugin entry above. |
+| Compact status line | `tuiCompactStatus.enabled: true` | Short text-only quota line at the home bottom and chat/session prompt locations, for example `Copilot 94% | OpenAI Pro 5h 100%, 7d 100%`. Requires the TUI plugin entry above. |
 | Terminal/slash only | `enableToast: false`, `tuiSidebarPanel.enabled: false`, `tuiCompactStatus.enabled: false` | Keeps `/quota`, `/quota_status`, and terminal checks. |
+
+Selecting Compact status line in the installer enables both compact surfaces by default. To keep compact status home-only, set `tuiCompactStatus.sessionPrompt: false`.
 
 For more examples, see [Common configuration](#common-configuration). For every option, see [Full configuration reference](#full-configuration-reference).
 
@@ -275,6 +277,23 @@ Useful when you want Compact status line only, toasts only, or slash commands on
 {
   "tuiSidebarPanel": {
     "enabled": false,
+  },
+}
+```
+
+</details>
+
+<details>
+<summary><strong>Keep Compact status line on home only</strong></summary>
+
+Useful when you want the compact line on the home screen but not in the chat/session prompt area.
+
+```jsonc
+{
+  "tuiCompactStatus": {
+    "enabled": true,
+    "homeBottom": true,
+    "sessionPrompt": false,
   },
 }
 ```
@@ -459,7 +478,8 @@ Start here when quota or token data looks wrong.
 | --- | --- |
 | `/quota` shows no providers | Run `/quota_status`, then check provider detection and auth. |
 | Sidebar panel does not appear | Confirm `tui.json` includes `@slkiser/opencode-quota`, restart OpenCode, and check `tuiSidebarPanel.enabled`. |
-| Compact status line does not appear | Confirm `tui.json` includes `@slkiser/opencode-quota`, restart OpenCode, and check `tuiCompactStatus.enabled` plus the surface you expect: `homeBottom` for the homepage or `sessionPrompt` for chat sessions. |
+| Compact status line does not appear anywhere | Confirm `tui.json` includes `@slkiser/opencode-quota`, restart OpenCode, check `tuiCompactStatus.enabled`, and check whether `tuiCompactStatus.suppressWhenNativeProviderQuota` is hiding it because OpenCode exposes native provider-quota support. |
+| Compact status appears on home but not in chat/session | Check `tuiCompactStatus.sessionPrompt`; set it to `true` to show the chat/session prompt line. |
 | Popup toasts do not appear | Check `enableToast`, `showOnIdle`, `showOnQuestion`, and `showOnCompact`. |
 | Token reports are empty | Start OpenCode once so `opencode.db` exists, then run a session with model usage. |
 | Pricing looks stale | Run `/pricing_refresh`. |

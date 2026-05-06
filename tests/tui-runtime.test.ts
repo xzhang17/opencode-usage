@@ -1130,7 +1130,7 @@ describe("tui runtime helpers", () => {
             tuiCompactStatus: {
               enabled: true,
               homeBottom: true,
-              maxWidth: 64,
+              maxWidth: 40,
             },
           },
         },
@@ -1185,7 +1185,7 @@ describe("tui runtime helpers", () => {
     expect(buildCompactQuotaStatusLine).toHaveBeenCalledWith({
       data,
       percentDisplayMode: "used",
-      maxWidth: 64,
+      maxWidth: 40,
     });
     expect(buildSidebarQuotaPanelLines).not.toHaveBeenCalled();
   });

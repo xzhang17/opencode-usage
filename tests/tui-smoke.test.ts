@@ -228,6 +228,59 @@ describe("tui plugin smoke", () => {
     expect(slotNames).not.toContain("home_prompt_right");
   });
 
+  it("renders home compact status centered with a blank line above it", async () => {
+    const plugin = await loadTuiModule();
+    const { api, registered } = createApi();
+
+    resolveTuiSurfaceRegistration.mockResolvedValueOnce({
+      sidebar: { enabled: false },
+      compact: {
+        enabled: true,
+        homeBottom: true,
+        sessionPrompt: false,
+        hasNativeProviderQuota: false,
+        suppressedByNativeProviderQuota: false,
+      },
+    });
+
+    await plugin.tui(api as any, undefined, {} as any);
+
+    const compactRegistration = registered.find((registration) => registration.order === 90);
+    expect(compactRegistration).toBeDefined();
+
+    compactRegistration!.slots.home_bottom({}, {});
+    await Promise.resolve();
+
+    const rendered = compactRegistration!.slots.home_bottom({}, {}) as any;
+    expect(rendered).toMatchObject({
+      type: "box",
+      props: {
+        gap: 0,
+        children: [
+          {
+            type: "text",
+            props: { children: " " },
+          },
+          {
+            type: "box",
+            props: {
+              flexDirection: "row",
+              justifyContent: "center",
+              children: {
+                type: "text",
+                props: {
+                  fg: "muted",
+                  wrapMode: "none",
+                  children: "Home quota",
+                },
+              },
+            },
+          },
+        ],
+      },
+    });
+  });
+
   it("wraps api.ui.Prompt and forwards session prompt props and ref exactly", async () => {
     const plugin = await loadTuiModule();
     const { api, registered } = createApi();

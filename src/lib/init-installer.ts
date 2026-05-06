@@ -463,7 +463,7 @@ function planTuiCompactStatusConfig(params: {
   setInstallerOwnedSetting(
     tuiCompactStatus,
     "sessionPrompt",
-    false,
+    true,
     `${pathLabel}.sessionPrompt`,
     params.edit,
   );
@@ -794,7 +794,7 @@ function buildPlanSummary(plan: InitInstallerPlan): string[] {
   ];
 
   if (quotaUiIntent.enableCompactStatus) {
-    lines.push(`Compact status mode: ${getTuiCompactStatusLabel("home_bottom")}`);
+    lines.push(`Compact status mode: ${getTuiCompactStatusLabel("home_bottom_session_prompt")}`);
   }
 
   const requestedProviders = resolveRequestedProviders(plan.selections);

@@ -340,7 +340,8 @@ function SidebarContentView(props: {
 function CompactStatusLine(props: {
   api: TuiPluginApi;
   panel: () => CompactStatusState;
-  justifyContent: "center" | "flex-end";
+  justifyContent: "flex-start" | "center" | "flex-end";
+  blankLineBefore?: boolean;
 }) {
   const text = () => {
     const panel = props.panel();
@@ -348,13 +349,22 @@ function CompactStatusLine(props: {
     return getCompactStatusText(panel);
   };
 
+  const line = () => (
+    <box flexDirection="row" justifyContent={props.justifyContent}>
+      <text fg={props.api.theme.current.textMuted} wrapMode="none">
+        {text()}
+      </text>
+    </box>
+  );
+
   return (
     <Show when={text()}>
-      <box flexDirection="row" justifyContent={props.justifyContent}>
-        <text fg={props.api.theme.current.textMuted} wrapMode="word">
-          {text()}
-        </text>
-      </box>
+      <Show when={props.blankLineBefore} fallback={line()}>
+        <box gap={0}>
+          <text> </text>
+          {line()}
+        </box>
+      </Show>
     </Show>
   );
 }
@@ -388,7 +398,14 @@ function HomeCompactStatusView(props: { api: TuiPluginApi }) {
   const resource = acquireHomeCompactResource(props.api);
   onCleanup(() => resource.release());
 
-  return <CompactStatusLine api={props.api} panel={resource.compact} justifyContent="center" />;
+  return (
+    <CompactStatusLine
+      api={props.api}
+      panel={resource.compact}
+      justifyContent="center"
+      blankLineBefore
+    />
+  );
 }
 
 function registerSidebarSlots(api: TuiPluginApi): void {

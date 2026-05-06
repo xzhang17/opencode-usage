@@ -152,6 +152,7 @@ function buildCompactStatusFromData(params: {
   runtime: QuotaRuntimeContext;
   result: CollectQuotaRenderDataResult;
   enabled: boolean;
+  maxWidth?: number;
 }): CompactStatusState {
   if (!params.enabled) return { status: "disabled" };
 
@@ -163,7 +164,7 @@ function buildCompactStatusFromData(params: {
     ? buildCompactQuotaStatusLine({
         data: params.result.data,
         percentDisplayMode: params.runtime.config.percentDisplayMode,
-        maxWidth: params.runtime.config.tuiCompactStatus.maxWidth,
+        maxWidth: params.maxWidth ?? params.runtime.config.tuiCompactStatus.maxWidth,
       })
     : "";
 

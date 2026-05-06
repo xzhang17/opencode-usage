@@ -433,7 +433,7 @@ describe("init installer planning and merge behavior", () => {
       },
     });
 
-    expect(plan.summaryLines).not.toContain("Compact status mode: Home bottom only");
+    expect(plan.summaryLines).not.toContain("Compact status mode: Home bottom + session prompt");
     expect(plan.edits.map((edit) => edit.kind)).toEqual(["opencode", "quota", "tui"]);
 
     await applyInitInstallerPlan(plan);
@@ -445,7 +445,7 @@ describe("init installer planning and merge behavior", () => {
     expect(quotaConfig.tuiCompactStatus).toBeUndefined();
   });
 
-  it("writes safe compact TUI config when compact status is selected", async () => {
+  it("writes compact TUI config when compact status is selected", async () => {
     const projectDir = join(tempDir, "project");
     mkdirSync(projectDir, { recursive: true });
 
@@ -463,7 +463,7 @@ describe("init installer planning and merge behavior", () => {
     });
 
     expect(plan.summaryLines).toContain("Quota UI: Sidebar + Compact status");
-    expect(plan.summaryLines).toContain("Compact status mode: Home bottom only");
+    expect(plan.summaryLines).toContain("Compact status mode: Home bottom + session prompt");
 
     await applyInitInstallerPlan(plan);
 
@@ -473,7 +473,7 @@ describe("init installer planning and merge behavior", () => {
     expect(quotaConfig.tuiCompactStatus).toEqual({
       enabled: true,
       homeBottom: true,
-      sessionPrompt: false,
+      sessionPrompt: true,
       suppressWhenNativeProviderQuota: true,
     });
   });
@@ -507,7 +507,7 @@ describe("init installer planning and merge behavior", () => {
     expect(quotaConfig.tuiCompactStatus).toEqual({
       enabled: true,
       homeBottom: true,
-      sessionPrompt: false,
+      sessionPrompt: true,
       suppressWhenNativeProviderQuota: true,
     });
   });
@@ -614,7 +614,7 @@ describe("init installer planning and merge behavior", () => {
     expect(quotaConfig.enableToast).toBe(true);
   });
 
-  it("maps legacy compact session-prompt config to safe compact sync when requested", async () => {
+  it("maps legacy compact session-prompt config to compact sync when requested", async () => {
     const projectDir = join(tempDir, "project");
     mkdirSync(projectDir, { recursive: true });
 
@@ -636,13 +636,13 @@ describe("init installer planning and merge behavior", () => {
     expect(plan.warnings).not.toContain(
       "sessionPrompt wraps OpenCode's core prompt slot and may conflict with other prompt-slot integrations.",
     );
-    expect(plan.summaryLines).toContain("Compact status mode: Home bottom only");
+    expect(plan.summaryLines).toContain("Compact status mode: Home bottom + session prompt");
 
     await applyInitInstallerPlan(plan);
 
     const quotaConfig = readJson(join(projectDir, "opencode-quota", "quota-toast.json"));
     const opencode = readJson(join(projectDir, "opencode.json"));
-    expect(quotaConfig.tuiCompactStatus.sessionPrompt).toBe(false);
+    expect(quotaConfig.tuiCompactStatus.sessionPrompt).toBe(true);
     expect(opencode.experimental.quotaToast.tuiCompactStatus).toEqual(quotaConfig.tuiCompactStatus);
   });
 
@@ -662,7 +662,7 @@ describe("init installer planning and merge behavior", () => {
         },
         tuiCompactStatus: {
           enabled: false,
-          sessionPrompt: true,
+          sessionPrompt: false,
           maxWidth: 40,
         },
       }),
@@ -713,7 +713,7 @@ describe("init installer planning and merge behavior", () => {
     expect(quotaConfig.tuiSidebarPanel).toEqual({ enabled: true });
     expect(quotaConfig.tuiCompactStatus).toEqual({
       enabled: true,
-      sessionPrompt: false,
+      sessionPrompt: true,
       maxWidth: 40,
       homeBottom: true,
       suppressWhenNativeProviderQuota: true,
@@ -841,7 +841,7 @@ describe("init installer planning and merge behavior", () => {
     expect(quotaConfig.tuiCompactStatus).toMatchObject({
       enabled: true,
       homeBottom: true,
-      sessionPrompt: false,
+      sessionPrompt: true,
       suppressWhenNativeProviderQuota: true,
     });
   });
