@@ -118,7 +118,7 @@ const zhipuMocks = vi.hoisted(() => ({
     checkedPaths: [],
     authPaths: ["/tmp/auth.json"],
   })),
-  resolveZhipuAuthCached: vi.fn(async () => ({ state: "none" as const })),
+  queryZhipuQuota: vi.fn(async () => null),
 }));
 
 const nanoGptMocks = vi.hoisted(() => ({
@@ -308,7 +308,7 @@ vi.mock("../src/lib/zhipu-auth.js", () => ({
 }));
 
 vi.mock("../src/lib/zhipu.js", () => ({
-  queryZhipuQuota: vi.fn(async () => null),
+  queryZhipuQuota: zhipuMocks.queryZhipuQuota,
 }));
 
 vi.mock("../src/lib/cursor-detection.js", () => ({
@@ -493,6 +493,29 @@ describe("buildQuotaStatusReport", () => {
       providerAvailability: [
         {
           id: "zai",
+          enabled: true,
+          available: true,
+        },
+      ],
+      generatedAtMs: Date.UTC(2026, 2, 12, 12, 45, 0),
+      ...overrides,
+    } as any);
+  }
+
+  async function buildZhipuStatusReport(overrides: Record<string, unknown> = {}) {
+    const { buildQuotaStatusReport } = await import("../src/lib/quota-status.js");
+
+    return buildQuotaStatusReport({
+      configSource: "test",
+      configPaths: [],
+      enabledProviders: ["zhipu"],
+      alibabaCodingPlanTier: "lite",
+      cursorPlan: "none",
+      pricingSnapshotSource: "auto",
+      onlyCurrentModel: false,
+      providerAvailability: [
+        {
+          id: "zhipu",
           enabled: true,
           available: true,
         },
@@ -1613,6 +1636,74 @@ describe("buildQuotaStatusReport", () => {
     const report = await buildZaiStatusReport();
 
     expect(report).toContain("- live_fetch_error: Z.ai API error 401: Unauthorized");
+  });
+
+  it("reports Zhipu auth diagnostics and live quota details when configured", async () => {
+    zhipuMocks.getZhipuAuthDiagnostics.mockResolvedValueOnce({
+      state: "configured",
+      source: "auth.json",
+      checkedPaths: [],
+      authPaths: ["/tmp/auth.json"],
+    });
+    zhipuMocks.queryZhipuQuota.mockResolvedValueOnce({
+      success: true,
+      label: "Zhipu",
+      windows: {
+        fiveHour: { percentRemaining: 67, resetTimeIso: "2026-03-25T18:00:00.000Z" },
+        weekly: { percentRemaining: 44, resetTimeIso: "2026-04-01T00:00:00.000Z" },
+        mcp: { percentRemaining: 90, resetTimeIso: "2026-04-10T00:00:00.000Z" },
+      },
+    });
+
+    const report = await buildZhipuStatusReport();
+
+    expect(report).toContain("zhipu:");
+    expect(report).toContain("- auth_state: configured");
+    expect(report).toContain("- api_key_configured: true");
+    expect(report).toContain("- api_key_source: auth.json");
+    expect(report).toContain("- api_key_checked_paths: (none)");
+    expect(report).toContain("- api_key_auth_paths: /tmp/auth.json");
+    expect(report).toContain("- five_hour_remaining: 67% reset_at=2026-03-25T18:00:00.000Z");
+    expect(report).toContain("- weekly_remaining: 44% reset_at=2026-04-01T00:00:00.000Z");
+    expect(report).toContain("- mcp_remaining: 90% reset_at=2026-04-10T00:00:00.000Z");
+  });
+
+  it("reports Zhipu auth errors", async () => {
+    zhipuMocks.getZhipuAuthDiagnostics.mockResolvedValueOnce({
+      state: "invalid",
+      source: "auth.json",
+      checkedPaths: [],
+      authPaths: ["/tmp/auth.json"],
+      error: 'Unsupported Zhipu auth type: "oauth"',
+    });
+
+    const report = await buildZhipuStatusReport();
+
+    expect(report).toContain("zhipu:");
+    expect(report).toContain("- auth_state: invalid");
+    expect(report).toContain("- api_key_configured: false");
+    expect(report).toContain("- api_key_source: auth.json");
+    expect(report).toContain("- api_key_checked_paths: (none)");
+    expect(report).toContain("- api_key_auth_paths: /tmp/auth.json");
+    expect(report).toContain('- auth_error: Unsupported Zhipu auth type: "oauth"');
+    expect(zhipuMocks.queryZhipuQuota).not.toHaveBeenCalled();
+  });
+
+  it("reports Zhipu endpoint errors", async () => {
+    zhipuMocks.getZhipuAuthDiagnostics.mockResolvedValueOnce({
+      state: "configured",
+      source: "auth.json",
+      checkedPaths: [],
+      authPaths: ["/tmp/auth.json"],
+    });
+    zhipuMocks.queryZhipuQuota.mockResolvedValueOnce({
+      success: false,
+      error: "Zhipu API error 401: Unauthorized",
+    });
+
+    const report = await buildZhipuStatusReport();
+
+    expect(report).toContain("- live_fetch_error: Zhipu API error 401: Unauthorized");
   });
 
   it("reports enterprise billing scope and token compatibility notes", async () => {

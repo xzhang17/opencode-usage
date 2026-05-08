@@ -91,6 +91,7 @@ export const QUOTA_PROVIDER_ID_SYNONYMS: Readonly<Record<string, string>> = {
   "opencode-gemini-auth": "google-gemini-cli",
   gemini: "google-gemini-cli",
   "glm-coding-plan": "zhipu",
+  "zhipu-coding-plan": "zhipu",
 };
 
 export const QUOTA_PROVIDER_RUNTIME_IDS: QuotaProviderRuntimeIds = {
