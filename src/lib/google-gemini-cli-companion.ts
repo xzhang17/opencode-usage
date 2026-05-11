@@ -76,6 +76,18 @@ function isModuleNotFoundError(error: unknown): boolean {
   return message.includes("Cannot find module");
 }
 
+function isPackagePathNotExportedError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  return "code" in error && error.code === "ERR_PACKAGE_PATH_NOT_EXPORTED";
+}
+
+function isFallthroughResolutionError(error: unknown): boolean {
+  return isModuleNotFoundError(error) || isPackagePathNotExportedError(error);
+}
+
 function normalizeCredential(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
@@ -134,17 +146,18 @@ function buildInvalidState(importSpecifier: string, resolvedPath?: string): Reso
 
 function parseSourceCredentials(content: string): { clientId: string; clientSecret: string } | null {
   const clientId =
-    content.match(/export\s+const\s+GEMINI_CLIENT_ID\s*=\s*["']([^"']+)["']/)?.[1]?.trim() ?? "";
+    content.match(/(?:export\s+const|var)\s+GEMINI_CLIENT_ID\s*=\s*["']([^"']+)["']/)?.[1]?.trim() ?? "";
   const clientSecret =
-    content.match(/export\s+const\s+GEMINI_CLIENT_SECRET\s*=\s*["']([^"']+)["']/)?.[1]?.trim() ?? "";
+    content.match(/(?:export\s+const|var)\s+GEMINI_CLIENT_SECRET\s*=\s*["']([^"']+)["']/)?.[1]?.trim() ?? "";
 
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
 function getRuntimeSourceConstantPaths(): string[] {
-  return getCompanionResolvePaths().map((cacheDir) =>
+  return getCompanionResolvePaths().flatMap((cacheDir) => [
     join(cacheDir, "node_modules", COMPANION_PACKAGE_NAME, "src", "constants.ts"),
-  );
+    join(cacheDir, "node_modules", COMPANION_PACKAGE_NAME, "dist", "index.js"),
+  ]);
 }
 
 async function tryReadSourceConstantsPath(
@@ -174,7 +187,7 @@ async function tryResolveJsConstants(
   try {
     resolvedPath = resolveCompanionSpecifier(importSpecifier);
   } catch (error) {
-    if (isModuleNotFoundError(error)) {
+    if (isFallthroughResolutionError(error)) {
       return null;
     }
     return buildInvalidState(importSpecifier);
@@ -201,7 +214,7 @@ async function tryResolveSourceConstants(): Promise<ResolvedCompanionState | nul
   try {
     resolvedPath = require.resolve(COMPANION_SOURCE_IMPORT_SPECIFIER);
   } catch (error) {
-    if (!isModuleNotFoundError(error)) {
+    if (!isFallthroughResolutionError(error)) {
       return buildInvalidState(COMPANION_SOURCE_IMPORT_SPECIFIER);
     }
 
@@ -214,8 +227,33 @@ async function tryResolveSourceConstants(): Promise<ResolvedCompanionState | nul
 
     try {
       const packageJsonPath = resolveCompanionSpecifier(COMPANION_PACKAGE_JSON_SPECIFIER);
-      resolvedPath = join(dirname(packageJsonPath), "src", "constants.ts");
+      const packageRoot = dirname(packageJsonPath);
+      for (const candidatePath of [
+        join(packageRoot, "src", "constants.ts"),
+        join(packageRoot, "dist", "index.js"),
+      ]) {
+        const packageResolved = await tryReadSourceConstantsPath(candidatePath);
+        if (packageResolved) {
+          return packageResolved;
+        }
+      }
+      resolvedPath = join(packageRoot, "src", "constants.ts");
     } catch (packageError) {
+      if (isPackagePathNotExportedError(packageError)) {
+        try {
+          const packageEntryPath = resolveCompanionSpecifier(COMPANION_PACKAGE_NAME);
+          const packageEntryResolved = await tryReadSourceConstantsPath(packageEntryPath);
+          if (packageEntryResolved) {
+            return packageEntryResolved;
+          }
+          return buildInvalidState(COMPANION_PACKAGE_NAME, packageEntryPath);
+        } catch (packageEntryError) {
+          return isModuleNotFoundError(packageEntryError)
+            ? null
+            : buildInvalidState(COMPANION_SOURCE_IMPORT_SPECIFIER);
+        }
+      }
+
       return isModuleNotFoundError(packageError)
         ? null
         : buildInvalidState(COMPANION_SOURCE_IMPORT_SPECIFIER);

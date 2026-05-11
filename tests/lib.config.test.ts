@@ -525,10 +525,15 @@ describe("loadConfig", () => {
 
   it("normalizes enabled provider aliases to canonical ids", async () => {
     const cfg = await loadSdkConfig({
-      enabledProviders: ["nano-gpt", "nanogpt", "open-cursor", "gemini-cli"],
+      enabledProviders: ["nano-gpt", "nanogpt", "open-cursor", "gemini-cli", "minimax-cn"],
     });
 
-    expect(cfg.config.enabledProviders).toEqual(["nanogpt", "cursor", "google-gemini-cli"]);
+    expect(cfg.config.enabledProviders).toEqual([
+      "nanogpt",
+      "cursor",
+      "google-gemini-cli",
+      "minimax-china-coding-plan",
+    ]);
   });
 
   it("reports unknown enabled provider ids and does not fall back to auto", async () => {

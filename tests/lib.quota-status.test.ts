@@ -97,7 +97,14 @@ const minimaxMocks = vi.hoisted(() => ({
     checkedPaths: [],
     authPaths: ["/tmp/auth.json"],
   })),
+  getMiniMaxChinaAuthDiagnostics: vi.fn(async () => ({
+    state: "none" as const,
+    source: null,
+    checkedPaths: [],
+    authPaths: ["/tmp/auth.json"],
+  })),
   resolveMiniMaxAuthCached: vi.fn(async () => ({ state: "none" as const })),
+  resolveMiniMaxChinaAuthCached: vi.fn(async () => ({ state: "none" as const })),
   queryMiniMaxQuota: vi.fn(async () => ({ success: true as const, entries: [] })),
 }));
 
@@ -286,7 +293,9 @@ vi.mock("../src/lib/alibaba-auth.js", () => ({
 vi.mock("../src/lib/minimax-auth.js", () => ({
   DEFAULT_MINIMAX_AUTH_CACHE_MAX_AGE_MS: 5_000,
   getMiniMaxAuthDiagnostics: minimaxMocks.getMiniMaxAuthDiagnostics,
+  getMiniMaxChinaAuthDiagnostics: minimaxMocks.getMiniMaxChinaAuthDiagnostics,
   resolveMiniMaxAuthCached: minimaxMocks.resolveMiniMaxAuthCached,
+  resolveMiniMaxChinaAuthCached: minimaxMocks.resolveMiniMaxChinaAuthCached,
 }));
 
 vi.mock("../src/providers/minimax-coding-plan.js", () => ({
@@ -462,7 +471,7 @@ describe("buildQuotaStatusReport", () => {
     return buildQuotaStatusReport({
       configSource: "test",
       configPaths: [],
-      enabledProviders: ["minimax-coding-plan"],
+      enabledProviders: ["minimax-coding-plan", "minimax-china-coding-plan"],
       alibabaCodingPlanTier: "lite",
       cursorPlan: "none",
       pricingSnapshotSource: "auto",
@@ -470,6 +479,11 @@ describe("buildQuotaStatusReport", () => {
       providerAvailability: [
         {
           id: "minimax-coding-plan",
+          enabled: true,
+          available: true,
+        },
+        {
+          id: "minimax-china-coding-plan",
           enabled: true,
           available: true,
         },
@@ -1482,12 +1496,14 @@ describe("buildQuotaStatusReport", () => {
     minimaxMocks.getMiniMaxAuthDiagnostics.mockResolvedValueOnce({
       state: "configured",
       source: "auth.json",
+      endpoint: "international",
       checkedPaths: [],
       authPaths: ["/tmp/auth.json"],
     });
     minimaxMocks.resolveMiniMaxAuthCached.mockResolvedValueOnce({
       state: "configured",
       apiKey: "test-key",
+      endpoint: "international",
     });
     minimaxMocks.queryMiniMaxQuota.mockResolvedValueOnce({
       success: true,
@@ -1524,7 +1540,10 @@ describe("buildQuotaStatusReport", () => {
       "- weekly_usage: 105/45000 percent_remaining=100 reset_at=2026-04-01T00:00:00.000Z",
     );
     expect(minimaxMocks.resolveMiniMaxAuthCached).toHaveBeenCalledWith({ maxAgeMs: 5_000 });
-    expect(minimaxMocks.queryMiniMaxQuota).toHaveBeenCalledWith("test-key");
+    expect(minimaxMocks.queryMiniMaxQuota).toHaveBeenCalledWith("test-key", {
+      endpoint: "international",
+      label: "MiniMax Coding Plan",
+    });
   });
 
   it("reports MiniMax auth errors", async () => {
@@ -1549,16 +1568,18 @@ describe("buildQuotaStatusReport", () => {
     expect(minimaxMocks.queryMiniMaxQuota).not.toHaveBeenCalled();
   });
 
-  it("reports MiniMax endpoint errors", async () => {
+  it("reports MiniMax API errors", async () => {
     minimaxMocks.getMiniMaxAuthDiagnostics.mockResolvedValueOnce({
       state: "configured",
       source: "auth.json",
+      endpoint: "international",
       checkedPaths: [],
       authPaths: ["/tmp/auth.json"],
     });
     minimaxMocks.resolveMiniMaxAuthCached.mockResolvedValueOnce({
       state: "configured",
       apiKey: "test-key",
+      endpoint: "international",
     });
     minimaxMocks.queryMiniMaxQuota.mockResolvedValueOnce({
       success: false,
@@ -1868,6 +1889,7 @@ openai:
 anthropic:
 cursor:
 minimax:
+minimax_china:
 kimi:
 opencode_go:
 zai:

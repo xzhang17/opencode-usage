@@ -31,8 +31,11 @@ import { resolveOpenAIOAuth } from "./openai.js";
 import {
   DEFAULT_MINIMAX_AUTH_CACHE_MAX_AGE_MS,
   getMiniMaxAuthDiagnostics,
+  getMiniMaxChinaAuthDiagnostics,
   resolveMiniMaxAuthCached,
+  resolveMiniMaxChinaAuthCached,
 } from "./minimax-auth.js";
+import { getMiniMaxQuotaEndpoint } from "./minimax-endpoints.js";
 import { DEFAULT_ZAI_AUTH_CACHE_MAX_AGE_MS, getZaiAuthDiagnostics } from "./zai-auth.js";
 import { DEFAULT_ZHIPU_AUTH_CACHE_MAX_AGE_MS, getZhipuAuthDiagnostics } from "./zhipu-auth.js";
 import {
@@ -985,58 +988,92 @@ export async function buildQuotaStatusReport(params: {
     sections.push(alibabaCodingPlanLiveProbeSection);
   }
 
-  // === minimax ===
-  const minimaxRows: ReportKvRow[] = [];
-  const minimaxAuth = await getMiniMaxAuthDiagnostics({
-    maxAgeMs: DEFAULT_MINIMAX_AUTH_CACHE_MAX_AGE_MS,
-  });
-  minimaxRows.push({ key: "auth_state", value: minimaxAuth.state });
-  minimaxRows.push({
-    key: "api_key_configured",
-    value: minimaxAuth.state === "configured" ? "true" : "false",
-  });
-  minimaxRows.push({ key: "api_key_source", value: minimaxAuth.source ?? "(none)" });
-  minimaxRows.push({ key: "api_key_checked_paths", value: joinOrNone(minimaxAuth.checkedPaths) });
-  minimaxRows.push({ key: "api_key_auth_paths", value: joinOrNone(minimaxAuth.authPaths) });
-  if (minimaxAuth.state === "invalid") {
-    minimaxRows.push({ key: "auth_error", value: sanitizeDisplayText(minimaxAuth.error) });
-  }
-  if (minimaxAuth.state === "configured") {
-    const resolvedMiniMaxAuth = await resolveMiniMaxAuthCached({
+  async function appendMiniMaxSection(section: {
+    id: string;
+    title: string;
+    providerId: "minimax-coding-plan" | "minimax-china-coding-plan";
+    label: string;
+    getDiagnostics: typeof getMiniMaxAuthDiagnostics;
+    resolveAuth: typeof resolveMiniMaxAuthCached;
+  }): Promise<void> {
+    const minimaxRows: ReportKvRow[] = [];
+    const minimaxAuth = await section.getDiagnostics({
       maxAgeMs: DEFAULT_MINIMAX_AUTH_CACHE_MAX_AGE_MS,
     });
-    if (resolvedMiniMaxAuth.state !== "configured") {
-      minimaxRows.push({
-        key: "live_fetch_error",
-        value: "MiniMax API key became unavailable before fetch",
+    minimaxRows.push({ key: "auth_state", value: minimaxAuth.state });
+    minimaxRows.push({
+      key: "api_key_configured",
+      value: minimaxAuth.state === "configured" ? "true" : "false",
+    });
+    minimaxRows.push({ key: "api_key_source", value: minimaxAuth.source ?? "(none)" });
+    if (minimaxAuth.state === "configured") {
+      const endpoint = getMiniMaxQuotaEndpoint(minimaxAuth.endpoint);
+      minimaxRows.push({ key: "api_endpoint", value: endpoint.id });
+      minimaxRows.push({ key: "api_base_url", value: endpoint.apiBaseUrl });
+    }
+    minimaxRows.push({ key: "api_key_checked_paths", value: joinOrNone(minimaxAuth.checkedPaths) });
+    minimaxRows.push({ key: "api_key_auth_paths", value: joinOrNone(minimaxAuth.authPaths) });
+    if (minimaxAuth.state === "invalid") {
+      minimaxRows.push({ key: "auth_error", value: sanitizeDisplayText(minimaxAuth.error) });
+    }
+    if (minimaxAuth.state === "configured") {
+      const resolvedMiniMaxAuth = await section.resolveAuth({
+        maxAgeMs: DEFAULT_MINIMAX_AUTH_CACHE_MAX_AGE_MS,
       });
-    } else {
-      const minimaxQuota = await queryMiniMaxQuota(resolvedMiniMaxAuth.apiKey);
-      if (!minimaxQuota.success) {
-        minimaxRows.push({ key: "live_fetch_error", value: minimaxQuota.error });
+      if (resolvedMiniMaxAuth.state !== "configured") {
+        minimaxRows.push({
+          key: "live_fetch_error",
+          value: `${section.label} API key became unavailable before fetch`,
+        });
       } else {
-        const fiveHourEntry = minimaxQuota.entries.find((entry) => entry.window === "five_hour");
-        const weeklyEntry = minimaxQuota.entries.find((entry) => entry.window === "weekly");
-        if (fiveHourEntry) {
-          minimaxRows.push({
-            key: "five_hour_usage",
-            value: `${fiveHourEntry.right ?? "(none)"} percent_remaining=${fiveHourEntry.percentRemaining} reset_at=${fiveHourEntry.resetTimeIso ?? "(none)"}`,
-          });
-        }
-        if (weeklyEntry) {
-          minimaxRows.push({
-            key: "weekly_usage",
-            value: `${weeklyEntry.right ?? "(none)"} percent_remaining=${weeklyEntry.percentRemaining} reset_at=${weeklyEntry.resetTimeIso ?? "(none)"}`,
-          });
-        }
-        if (!fiveHourEntry && !weeklyEntry) {
-          minimaxRows.push({ key: "live_state", value: "no reportable MiniMax Coding Plan quota" });
+        const minimaxQuota = await queryMiniMaxQuota(resolvedMiniMaxAuth.apiKey, {
+          endpoint: resolvedMiniMaxAuth.endpoint,
+          label: section.label,
+        });
+        if (!minimaxQuota.success) {
+          minimaxRows.push({ key: "live_fetch_error", value: minimaxQuota.error });
+        } else {
+          const fiveHourEntry = minimaxQuota.entries.find((entry) => entry.window === "five_hour");
+          const weeklyEntry = minimaxQuota.entries.find((entry) => entry.window === "weekly");
+          if (fiveHourEntry) {
+            minimaxRows.push({
+              key: "five_hour_usage",
+              value: `${fiveHourEntry.right ?? "(none)"} percent_remaining=${fiveHourEntry.percentRemaining} reset_at=${fiveHourEntry.resetTimeIso ?? "(none)"}`,
+            });
+          }
+          if (weeklyEntry) {
+            minimaxRows.push({
+              key: "weekly_usage",
+              value: `${weeklyEntry.right ?? "(none)"} percent_remaining=${weeklyEntry.percentRemaining} reset_at=${weeklyEntry.resetTimeIso ?? "(none)"}`,
+            });
+          }
+          if (!fiveHourEntry && !weeklyEntry) {
+            minimaxRows.push({ key: "live_state", value: `no reportable ${section.label} quota` });
+          }
         }
       }
     }
+    appendProviderCompactLiveProbeRows(minimaxRows, section.providerId, params.providerLiveProbes);
+    sections.push(createKvSection(section.id, section.title, minimaxRows));
   }
-  appendProviderCompactLiveProbeRows(minimaxRows, "minimax-coding-plan", params.providerLiveProbes);
-  sections.push(createKvSection("minimax", "minimax:", minimaxRows));
+
+  // === minimax ===
+  await appendMiniMaxSection({
+    id: "minimax",
+    title: "minimax:",
+    providerId: "minimax-coding-plan",
+    label: "MiniMax Coding Plan",
+    getDiagnostics: getMiniMaxAuthDiagnostics,
+    resolveAuth: resolveMiniMaxAuthCached,
+  });
+  await appendMiniMaxSection({
+    id: "minimax_china",
+    title: "minimax_china:",
+    providerId: "minimax-china-coding-plan",
+    label: "MiniMax Coding Plan (CN)",
+    getDiagnostics: getMiniMaxChinaAuthDiagnostics,
+    resolveAuth: resolveMiniMaxChinaAuthCached,
+  });
 
   // === kimi ===
   const kimiRows: ReportKvRow[] = [];

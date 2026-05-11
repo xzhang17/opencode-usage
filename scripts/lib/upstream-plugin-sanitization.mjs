@@ -80,6 +80,7 @@ const SNAPSHOT_SANITIZERS = Object.freeze({
   "opencode-gemini-auth": Object.freeze([
     {
       relativePath: "src/constants.ts",
+      optional: true,
       replacements: [
         {
           label: "GEMINI_CLIENT_ID",
@@ -90,6 +91,38 @@ const SNAPSHOT_SANITIZERS = Object.freeze({
           label: "GEMINI_CLIENT_SECRET",
           pattern: /(export const GEMINI_CLIENT_SECRET = )(["'])[^"']+\2;/,
           replacement: `$1$2${REDACTED_GOOGLE_OAUTH_CLIENT_SECRET}$2;`,
+        },
+      ],
+    },
+    {
+      relativePath: "dist/index.js",
+      optional: true,
+      replacements: [
+        {
+          label: "GEMINI_CLIENT_ID",
+          pattern: /(var GEMINI_CLIENT_ID = )(["'])[^"']+\2;/,
+          replacement: `$1$2${REDACTED_GOOGLE_OAUTH_CLIENT_ID}$2;`,
+        },
+        {
+          label: "GEMINI_CLIENT_SECRET",
+          pattern: /(var GEMINI_CLIENT_SECRET = )(["'])[^"']+\2;/,
+          replacement: `$1$2${REDACTED_GOOGLE_OAUTH_CLIENT_SECRET}$2;`,
+        },
+      ],
+    },
+    {
+      relativePath: "dist/index.js.map",
+      optional: true,
+      replacements: [
+        {
+          label: "GEMINI_CLIENT_ID_SOURCE_MAP",
+          pattern: /(export const GEMINI_CLIENT_ID = \\")([^\\"]+)(\\";)/,
+          replacement: `$1${REDACTED_GOOGLE_OAUTH_CLIENT_ID}$3`,
+        },
+        {
+          label: "GEMINI_CLIENT_SECRET_SOURCE_MAP",
+          pattern: /(export const GEMINI_CLIENT_SECRET = \\")([^\\"]+)(\\";)/,
+          replacement: `$1${REDACTED_GOOGLE_OAUTH_CLIENT_SECRET}$3`,
         },
       ],
     },
@@ -126,10 +159,19 @@ const SNAPSHOT_SANITIZERS = Object.freeze({
 
 export async function sanitizeUpstreamPluginSnapshot(pluginId, pluginRoot) {
   const sanitizers = SNAPSHOT_SANITIZERS[pluginId] ?? [];
+  const redactedLabels = new Set();
 
   for (const sanitizer of sanitizers) {
     const filePath = path.join(pluginRoot, sanitizer.relativePath);
-    let content = await readFile(filePath, "utf8");
+    let content;
+    try {
+      content = await readFile(filePath, "utf8");
+    } catch (error) {
+      if (sanitizer.optional && error && typeof error === "object" && "code" in error && error.code === "ENOENT") {
+        continue;
+      }
+      throw error;
+    }
 
     for (const replacement of sanitizer.replacements) {
       if (replacement.alreadySanitizedPattern?.test(content)) {
@@ -143,8 +185,18 @@ export async function sanitizeUpstreamPluginSnapshot(pluginId, pluginRoot) {
       }
 
       content = content.replace(replacement.pattern, replacement.replacement);
+      redactedLabels.add(replacement.label);
     }
 
     await writeFile(filePath, content, "utf8");
+  }
+
+  if (
+    pluginId === "opencode-gemini-auth" &&
+    (!redactedLabels.has("GEMINI_CLIENT_ID") || !redactedLabels.has("GEMINI_CLIENT_SECRET"))
+  ) {
+    throw new Error(
+      `Expected GEMINI_CLIENT_ID and GEMINI_CLIENT_SECRET while sanitizing ${pluginId} snapshot.`,
+    );
   }
 }

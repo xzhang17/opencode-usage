@@ -23,6 +23,7 @@ vi.mock("../src/lib/opencode-runtime-paths.js", () => ({
 import {
   collectQuotaRenderData,
   collectQuotaStatusLiveProbes,
+  matchesQuotaProviderCurrentSelection,
 } from "../src/lib/quota-render-data.js";
 import { __resetQuotaStateForTests } from "../src/lib/quota-state.js";
 import { DEFAULT_CONFIG } from "../src/lib/types.js";
@@ -277,6 +278,33 @@ describe("collectQuotaRenderData shared quota state", () => {
     expect(copilotProvider.isAvailable).not.toHaveBeenCalled();
     expect(copilotProvider.fetch).not.toHaveBeenCalled();
     expect(result.data?.entries).toEqual([{ name: "OpenAI Weekly", percentRemaining: 55 }]);
+  });
+
+  it("normalizes provider-only session metadata before matching providers", () => {
+    expect(
+      matchesQuotaProviderCurrentSelection({
+        provider: { id: "minimax-china-coding-plan" } as any,
+        currentProviderID: "minimax-cn-coding-plan",
+      }),
+    ).toBe(true);
+  });
+
+  it("passes explicit enabledProviders context into current-model matching", () => {
+    const provider = {
+      id: "minimax-china-coding-plan",
+      matchesCurrentModel: vi.fn().mockReturnValue(true),
+    };
+
+    expect(
+      matchesQuotaProviderCurrentSelection({
+        provider: provider as any,
+        currentModel: "minimax/MiniMax-M2.7",
+        enabledProviders: ["minimax-china-coding-plan"],
+      }),
+    ).toBe(true);
+    expect(provider.matchesCurrentModel).toHaveBeenCalledWith("minimax/MiniMax-M2.7", {
+      enabledProviders: ["minimax-china-coding-plan"],
+    });
   });
 
   it("reuses one canonical provider snapshot across single-window and all-window renders without mutation bleed", async () => {

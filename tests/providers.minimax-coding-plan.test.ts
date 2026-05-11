@@ -8,12 +8,15 @@ import {
 
 const mocks = vi.hoisted(() => ({
   fetchWithTimeout: vi.fn(),
+  isAnyProviderIdAvailable: vi.fn(),
   isCanonicalProviderAvailable: vi.fn(),
   resolveMiniMaxAuthCached: vi.fn(),
+  resolveMiniMaxChinaAuthCached: vi.fn(),
 }));
 
 vi.mock("../src/lib/minimax-auth.js", () => ({
   resolveMiniMaxAuthCached: mocks.resolveMiniMaxAuthCached,
+  resolveMiniMaxChinaAuthCached: mocks.resolveMiniMaxChinaAuthCached,
   DEFAULT_MINIMAX_AUTH_CACHE_MAX_AGE_MS: 5_000,
 }));
 
@@ -22,10 +25,15 @@ vi.mock("../src/lib/http.js", () => ({
 }));
 
 vi.mock("../src/lib/provider-availability.js", () => ({
+  isAnyProviderIdAvailable: mocks.isAnyProviderIdAvailable,
   isCanonicalProviderAvailable: mocks.isCanonicalProviderAvailable,
 }));
 
-import { minimaxCodingPlanProvider } from "../src/providers/minimax-coding-plan.js";
+import {
+  minimaxChinaCodingPlanProvider,
+  minimaxCodingPlanProvider,
+  queryMiniMaxQuota,
+} from "../src/providers/minimax-coding-plan.js";
 
 function createCodingPlanModel(
   overrides: Partial<{
@@ -54,12 +62,20 @@ function mockMiniMaxAuthNone() {
   mocks.resolveMiniMaxAuthCached.mockResolvedValueOnce({ state: "none" });
 }
 
+function mockMiniMaxChinaAuthNone() {
+  mocks.resolveMiniMaxChinaAuthCached.mockResolvedValueOnce({ state: "none" });
+}
+
 function mockMiniMaxAuthInvalid(error = "Invalid API key") {
   mocks.resolveMiniMaxAuthCached.mockResolvedValueOnce({ state: "invalid", error });
 }
 
-function mockMiniMaxAuthConfigured(apiKey = "test-key") {
-  mocks.resolveMiniMaxAuthCached.mockResolvedValueOnce({ state: "configured", apiKey });
+function mockMiniMaxAuthConfigured(apiKey = "test-key", endpoint: "international" | "china" = "international") {
+  mocks.resolveMiniMaxAuthCached.mockResolvedValueOnce({ state: "configured", apiKey, endpoint });
+}
+
+function mockMiniMaxChinaAuthConfigured(apiKey = "china-key") {
+  mocks.resolveMiniMaxChinaAuthCached.mockResolvedValueOnce({ state: "configured", apiKey, endpoint: "china" });
 }
 
 function mockMiniMaxHttpSuccess(models: unknown[]) {
@@ -82,6 +98,10 @@ function mockMiniMaxHttpFailure(status: number, text: string) {
 
 async function runProviderFetch() {
   return minimaxCodingPlanProvider.fetch({ config: {} } as any);
+}
+
+async function runChinaProviderFetch() {
+  return minimaxChinaCodingPlanProvider.fetch({ config: {} } as any);
 }
 
 describe("minimax-coding-plan provider", () => {
@@ -128,6 +148,63 @@ describe("minimax-coding-plan provider", () => {
       right: "105/45000",
       percentRemaining: 100,
     });
+  });
+
+  it("uses the China Token Plan endpoint for the MiniMax China provider", async () => {
+    mockMiniMaxChinaAuthConfigured("china-key");
+    mockMiniMaxHttpSuccess([createCodingPlanModel({ model_name: "MiniMax-M2.7" })]);
+
+    const out = await runChinaProviderFetch();
+
+    expectAttemptedWithNoErrors(out);
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledWith(
+      "https://api.minimaxi.com/v1/token_plan/remains",
+      expect.objectContaining({
+        method: "GET",
+        headers: expect.objectContaining({ Authorization: "Bearer china-key" }),
+      }),
+      undefined,
+    );
+  });
+
+  it("maps China five-hour-only Token Plan responses without weekly fields", async () => {
+    mockMiniMaxChinaAuthConfigured("china-key");
+    mockMiniMaxHttpSuccess([
+      createCodingPlanModel({
+        model_name: "MiniMax-M2.7",
+        current_interval_total_count: 1500,
+        current_interval_usage_count: 1200,
+        current_weekly_total_count: undefined,
+        current_weekly_usage_count: undefined,
+        weekly_remains_time: undefined,
+      }),
+    ]);
+
+    const out = await runChinaProviderFetch();
+
+    expectAttemptedWithNoErrors(out);
+    expect(out.entries).toHaveLength(1);
+    expect(out.entries[0]).toMatchObject({
+      window: "five_hour",
+      name: "MiniMax Coding Plan (CN) 5h",
+      group: "MiniMax Coding Plan (CN)",
+      right: "300/1500",
+      percentRemaining: 80,
+    });
+  });
+
+  it("uses the international Coding Plan endpoint by default", async () => {
+    mockMiniMaxHttpSuccess([createCodingPlanModel()]);
+
+    await queryMiniMaxQuota("intl-key");
+
+    expect(mocks.fetchWithTimeout).toHaveBeenCalledWith(
+      "https://api.minimax.io/v1/api/openplatform/coding_plan/remains",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer intl-key" }),
+      }),
+      undefined,
+    );
   });
 
   it("preserves negative remaining percentages when MiniMax reports negative remaining quota", async () => {
@@ -332,10 +409,32 @@ describe("minimax-coding-plan provider", () => {
     ["minimax/MiniMax-M2.7-highspeed", true],
     ["MINIMAX/MiniMax-M2.7", true],
     ["minimax-coding-plan/MiniMax-M2.7", true],
+    ["minimax-cn/MiniMax-M2.7", false],
+    ["minimax-cn-coding-plan/MiniMax-M2.7", false],
+    ["minimax-china-coding-plan/MiniMax-M2.7", false],
     ["minimax/Hailuo-02", false],
     ["openai/gpt-4", false],
-  ])("matchesCurrentModel(%s) -> %s", (model, expected) => {
+  ])("international matchesCurrentModel(%s) -> %s", (model, expected) => {
     expect(minimaxCodingPlanProvider.matchesCurrentModel?.(model)).toBe(expected);
+  });
+
+  it.each([
+    ["minimax/MiniMax-M2.7", false],
+    ["minimax-cn/MiniMax-M2.7", true],
+    ["minimax-cn-coding-plan/MiniMax-M2.7", true],
+    ["minimax-china-coding-plan/MiniMax-M2.7", true],
+    ["minimax-coding-plan/MiniMax-M2.7", false],
+    ["minimax/Hailuo-02", false],
+  ])("China matchesCurrentModel(%s) -> %s", (model, expected) => {
+    expect(minimaxChinaCodingPlanProvider.matchesCurrentModel?.(model)).toBe(expected);
+  });
+
+  it("lets the China provider match ambiguous minimax models when explicitly enabled", () => {
+    expect(
+      minimaxChinaCodingPlanProvider.matchesCurrentModel?.("minimax/MiniMax-M2.7", {
+        enabledProviders: ["minimax-china-coding-plan"],
+      }),
+    ).toBe(true);
   });
 
   it.each([
@@ -346,7 +445,7 @@ describe("minimax-coding-plan provider", () => {
     mocks.isCanonicalProviderAvailable.mockResolvedValueOnce(true);
     mocks.resolveMiniMaxAuthCached.mockResolvedValueOnce(authState);
 
-    const available = await minimaxCodingPlanProvider.isAvailable({} as any);
+    const available = await minimaxCodingPlanProvider.isAvailable({ config: { enabledProviders: "auto" } } as any);
     expect(available).toBe(expected);
   });
 
@@ -354,8 +453,33 @@ describe("minimax-coding-plan provider", () => {
     mocks.isCanonicalProviderAvailable.mockResolvedValueOnce(false);
     mocks.resolveMiniMaxAuthCached.mockResolvedValueOnce({ state: "configured", apiKey: "test-key" });
 
-    const available = await minimaxCodingPlanProvider.isAvailable({} as any);
+    const available = await minimaxCodingPlanProvider.isAvailable({ config: { enabledProviders: "auto" } } as any);
     expect(available).toBe(false);
     expect(mocks.resolveMiniMaxAuthCached).not.toHaveBeenCalled();
+  });
+
+  it("allows the China provider to use ambiguous minimax runtime ids only when explicitly enabled", async () => {
+    mocks.isCanonicalProviderAvailable.mockResolvedValueOnce(false);
+    mocks.isAnyProviderIdAvailable.mockResolvedValueOnce(true);
+    mockMiniMaxChinaAuthConfigured("china-key");
+
+    const available = await minimaxChinaCodingPlanProvider.isAvailable({
+      config: { enabledProviders: ["minimax-china-coding-plan"] },
+    } as any);
+
+    expect(available).toBe(true);
+  });
+
+  it("does not use ambiguous minimax runtime ids for the China provider in auto mode", async () => {
+    mocks.isCanonicalProviderAvailable.mockResolvedValueOnce(false);
+    mockMiniMaxChinaAuthNone();
+
+    const available = await minimaxChinaCodingPlanProvider.isAvailable({
+      config: { enabledProviders: "auto" },
+    } as any);
+
+    expect(available).toBe(false);
+    expect(mocks.isAnyProviderIdAvailable).not.toHaveBeenCalled();
+    expect(mocks.resolveMiniMaxChinaAuthCached).not.toHaveBeenCalled();
   });
 });

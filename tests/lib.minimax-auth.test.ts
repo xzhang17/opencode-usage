@@ -34,13 +34,20 @@ vi.mock("../src/lib/opencode-auth.js", () => ({
 import {
   DEFAULT_MINIMAX_AUTH_CACHE_MAX_AGE_MS,
   getMiniMaxAuthDiagnostics,
+  getMiniMaxChinaAuthDiagnostics,
   getOpencodeConfigCandidatePaths,
   resolveMiniMaxAuth,
   resolveMiniMaxAuthCached,
+  resolveMiniMaxChinaAuth,
+  resolveMiniMaxChinaAuthCached,
 } from "../src/lib/minimax-auth.js";
 
 const withMiniMaxAuth = (entry: unknown) => ({
   "minimax-coding-plan": entry,
+});
+
+const withMiniMaxChinaAuth = (entry: unknown) => ({
+  "minimax-china-coding-plan": entry,
 });
 
 describe("minimax auth resolution", () => {
@@ -55,7 +62,11 @@ describe("minimax auth resolution", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
-    resetProcessEnv(originalEnv, ["MINIMAX_CODING_PLAN_API_KEY", "MINIMAX_API_KEY"]);
+    resetProcessEnv(originalEnv, [
+      "MINIMAX_CHINA_CODING_PLAN_API_KEY",
+      "MINIMAX_CODING_PLAN_API_KEY",
+      "MINIMAX_API_KEY",
+    ]);
 
     mocks.getAuthPaths.mockReset().mockReturnValue(["/tmp/auth.json"]);
     mocks.readAuthFileCached.mockReset();
@@ -111,12 +122,12 @@ describe("minimax auth resolution", () => {
       [
         "key when both key and access are present",
         withMiniMaxAuth({ type: "api", key: "primary-key", access: "access-key" }),
-        { state: "configured", apiKey: "primary-key" },
+        { state: "configured", apiKey: "primary-key", endpoint: "international" },
       ],
       [
         "access when key is missing",
         withMiniMaxAuth({ type: "api", access: "access-token" }),
-        { state: "configured", apiKey: "access-token" },
+        { state: "configured", apiKey: "access-token", endpoint: "international" },
       ],
     ])("returns %j when using %s", (_label, auth, expected) => {
       expect(resolveMiniMaxAuth(auth as any)).toEqual(expected);
@@ -134,6 +145,31 @@ describe("minimax auth resolution", () => {
       await expect(resolveMiniMaxAuthCached()).resolves.toEqual({
         state: "configured",
         apiKey: "primary-env-key",
+        endpoint: "international",
+      });
+      expect(mocks.readAuthFileCached).not.toHaveBeenCalled();
+    });
+
+    it("does not use the China env key for the international provider", async () => {
+      process.env.MINIMAX_CHINA_CODING_PLAN_API_KEY = "china-env-key";
+      process.env.MINIMAX_CODING_PLAN_API_KEY = "primary-env-key";
+
+      await expect(resolveMiniMaxAuthCached()).resolves.toEqual({
+        state: "configured",
+        apiKey: "primary-env-key",
+        endpoint: "international",
+      });
+      expect(mocks.readAuthFileCached).not.toHaveBeenCalled();
+    });
+
+    it("resolves the China provider from MINIMAX_CHINA_CODING_PLAN_API_KEY", async () => {
+      process.env.MINIMAX_CHINA_CODING_PLAN_API_KEY = "china-env-key";
+      process.env.MINIMAX_CODING_PLAN_API_KEY = "primary-env-key";
+
+      await expect(resolveMiniMaxChinaAuthCached()).resolves.toEqual({
+        state: "configured",
+        apiKey: "china-env-key",
+        endpoint: "china",
       });
       expect(mocks.readAuthFileCached).not.toHaveBeenCalled();
     });
@@ -156,8 +192,31 @@ describe("minimax auth resolution", () => {
       await expect(resolveMiniMaxAuthCached()).resolves.toEqual({
         state: "configured",
         apiKey: "json-key",
+        endpoint: "international",
       });
       expect(mocks.readAuthFileCached).not.toHaveBeenCalled();
+    });
+
+    it("resolves China from trusted config China aliases", async () => {
+      mockTrustedConfigFile(
+        fsConfigMocks,
+        trustedPaths.json,
+        JSON.stringify({
+          provider: {
+            "minimax-cn": {
+              options: {
+                apiKey: "json-key",
+              },
+            },
+          },
+        }),
+      );
+
+      await expect(resolveMiniMaxChinaAuthCached()).resolves.toEqual({
+        state: "configured",
+        apiKey: "json-key",
+        endpoint: "china",
+      });
     });
 
     it.each([
@@ -178,6 +237,7 @@ describe("minimax auth resolution", () => {
       await expect(resolveMiniMaxAuthCached()).resolves.toEqual({
         state: "configured",
         apiKey: "access-token",
+        endpoint: "international",
       });
       expect(mocks.readAuthFileCached).toHaveBeenCalledWith({
         maxAgeMs: DEFAULT_MINIMAX_AUTH_CACHE_MAX_AGE_MS,
@@ -205,6 +265,7 @@ describe("minimax auth resolution", () => {
       await expect(resolveMiniMaxAuthCached()).resolves.toEqual({
         state: "configured",
         apiKey: "json-key",
+        endpoint: "international",
       });
       expect(mocks.readAuthFileCached).not.toHaveBeenCalled();
     });
@@ -217,6 +278,16 @@ describe("minimax auth resolution", () => {
     });
   });
 
+  describe("resolveMiniMaxChinaAuth", () => {
+    it("resolves MiniMax China auth.json keys", () => {
+      expect(resolveMiniMaxChinaAuth(withMiniMaxChinaAuth({ type: "api", key: "china-key" }))).toEqual({
+        state: "configured",
+        apiKey: "china-key",
+        endpoint: "china",
+      });
+    });
+  });
+
   describe("getMiniMaxAuthDiagnostics", () => {
     it("reports env/config checked paths separately from auth paths", async () => {
       process.env.MINIMAX_API_KEY = "diag-key";
@@ -224,7 +295,20 @@ describe("minimax auth resolution", () => {
       await expect(getMiniMaxAuthDiagnostics()).resolves.toEqual({
         state: "configured",
         source: "env:MINIMAX_API_KEY",
+        endpoint: "international",
         checkedPaths: ["env:MINIMAX_API_KEY"],
+        authPaths: ["/tmp/auth.json"],
+      });
+    });
+
+    it("reports China provider diagnostics", async () => {
+      process.env.MINIMAX_CHINA_CODING_PLAN_API_KEY = "diag-key";
+
+      await expect(getMiniMaxChinaAuthDiagnostics()).resolves.toEqual({
+        state: "configured",
+        source: "env:MINIMAX_CHINA_CODING_PLAN_API_KEY",
+        endpoint: "china",
+        checkedPaths: ["env:MINIMAX_CHINA_CODING_PLAN_API_KEY"],
         authPaths: ["/tmp/auth.json"],
       });
     });

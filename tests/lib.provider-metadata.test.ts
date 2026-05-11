@@ -120,6 +120,13 @@ describe("provider-metadata", () => {
         quota: "remote_api",
       },
       {
+        id: "minimax-china-coding-plan",
+        autoSetup: "yes",
+        authentication: "opencode_auth_api_key",
+        authFallbacks: ["env_api_key", "global_opencode_config"],
+        quota: "remote_api",
+      },
+      {
         id: "kimi-for-coding",
         autoSetup: "yes",
         authentication: "opencode_auth_api_key",
@@ -186,6 +193,12 @@ describe("provider-metadata", () => {
       "minimax-coding-plan",
       "minimax",
     ]);
+    expect(QUOTA_PROVIDER_RUNTIME_IDS["minimax-china-coding-plan"]).toEqual([
+      "minimax-china-coding-plan",
+      "minimax-cn-coding-plan",
+      "minimax-cn",
+      "minimax-china",
+    ]);
     expect(QUOTA_PROVIDER_RUNTIME_IDS["kimi-for-coding"]).toEqual([
       "kimi-for-coding",
       "kimi",
@@ -226,7 +239,16 @@ describe("provider-metadata", () => {
       "glm-coding-plan",
       "zhipu-coding-plan",
     ]);
-    expect(getQuotaProviderRuntimeIds("minimax")).toEqual(["minimax-coding-plan", "minimax"]);
+    expect(getQuotaProviderRuntimeIds("minimax")).toEqual([
+      "minimax-coding-plan",
+      "minimax",
+    ]);
+    expect(getQuotaProviderRuntimeIds("minimax-cn")).toEqual([
+      "minimax-china-coding-plan",
+      "minimax-cn-coding-plan",
+      "minimax-cn",
+      "minimax-china",
+    ]);
     expect(getQuotaProviderRuntimeIds("kimi")).toEqual(["kimi-for-coding", "kimi", "kimi-code"]);
     expect(getQuotaProviderRuntimeIds("not-a-provider")).toEqual([]);
   });
@@ -275,6 +297,7 @@ describe("provider-metadata", () => {
     expect(getQuotaProviderDisplayLabel("nanogpt")).toBe("NanoGPT");
     expect(getQuotaProviderDisplayLabel("nano-gpt")).toBe("NanoGPT");
     expect(getQuotaProviderDisplayLabel("minimax")).toBe("MiniMax Coding Plan");
+    expect(getQuotaProviderDisplayLabel("minimax-cn-coding-plan")).toBe("MiniMax Coding Plan (CN)");
     expect(getQuotaProviderDisplayLabel("kimi-code")).toBe("Kimi Code");
     expect(getQuotaProviderDisplayLabel("kimi")).toBe("Kimi Code");
     expect(getQuotaProviderDisplayLabel("something-else")).toBe("something-else");

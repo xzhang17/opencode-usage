@@ -96,6 +96,10 @@ export interface QuotaProviderResult {
   presentation?: QuotaProviderPresentation;
 }
 
+export interface QuotaProviderMatchContext {
+  enabledProviders: string[] | "auto";
+}
+
 export interface QuotaProviderContext {
   client: {
     config: {
@@ -117,6 +121,7 @@ export interface QuotaProviderContext {
     onlyCurrentModel?: boolean;
     currentModel?: string;
     currentProviderID?: string;
+    enabledProviders: string[] | "auto";
   };
 }
 
@@ -131,5 +136,5 @@ export interface QuotaProvider {
   fetch: (ctx: QuotaProviderContext) => Promise<QuotaProviderResult>;
 
   /** Optional provider match for onlyCurrentModel filtering */
-  matchesCurrentModel?: (model: string) => boolean;
+  matchesCurrentModel?: (model: string, context?: QuotaProviderMatchContext) => boolean;
 }

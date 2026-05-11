@@ -28,6 +28,12 @@ function moduleNotFound(): Error & { code?: string } {
   return error;
 }
 
+function packagePathNotExported(): Error & { code?: string } {
+  const error = new Error("Package subpath is not defined by \"exports\"");
+  error.code = "ERR_PACKAGE_PATH_NOT_EXPORTED";
+  return error;
+}
+
 describe("google gemini cli companion resolution", () => {
   let tempDir: string;
 
@@ -85,6 +91,69 @@ describe("google gemini cli companion resolution", () => {
       clientId: "client-id",
       clientSecret: "client-secret",
       resolvedPath: constantsPath,
+    });
+  });
+
+  it("reads credentials from the bundled dist file", async () => {
+    const packageRoot = join(tempDir, "opencode-gemini-auth");
+    const packageJsonPath = join(packageRoot, "package.json");
+    const distPath = join(packageRoot, "dist", "index.js");
+    mkdirSync(join(packageRoot, "dist"), { recursive: true });
+    writeFileSync(packageJsonPath, JSON.stringify({ name: "opencode-gemini-auth" }), "utf8");
+    writeFileSync(
+      distPath,
+      [
+        "var GEMINI_CLIENT_ID = 'dist-client-id';",
+        "var GEMINI_CLIENT_SECRET = 'dist-client-secret';",
+      ].join("\n"),
+      "utf8",
+    );
+    moduleMocks.resolveImpl.mockImplementation((specifier) => {
+      if (specifier === "opencode-gemini-auth/package.json") {
+        return packageJsonPath;
+      }
+      throw moduleNotFound();
+    });
+
+    const mod = await import("../src/lib/google-gemini-cli-companion.js");
+
+    await expect(mod.resolveGeminiCliClientCredentials()).resolves.toMatchObject({
+      state: "configured",
+      clientId: "dist-client-id",
+      clientSecret: "dist-client-secret",
+      resolvedPath: distPath,
+    });
+  });
+
+  it("falls through package export blocks and reads credentials from the package root export", async () => {
+    const packageRoot = join(tempDir, "opencode-gemini-auth");
+    const distPath = join(packageRoot, "dist", "index.js");
+    mkdirSync(join(packageRoot, "dist"), { recursive: true });
+    writeFileSync(
+      distPath,
+      [
+        "var GEMINI_CLIENT_ID = 'export-client-id';",
+        "var GEMINI_CLIENT_SECRET = 'export-client-secret';",
+      ].join("\n"),
+      "utf8",
+    );
+    moduleMocks.resolveImpl.mockImplementation((specifier) => {
+      if (specifier === "opencode-gemini-auth") {
+        return distPath;
+      }
+      if (specifier.startsWith("opencode-gemini-auth/")) {
+        throw packagePathNotExported();
+      }
+      throw moduleNotFound();
+    });
+
+    const mod = await import("../src/lib/google-gemini-cli-companion.js");
+
+    await expect(mod.resolveGeminiCliClientCredentials()).resolves.toMatchObject({
+      state: "configured",
+      clientId: "export-client-id",
+      clientSecret: "export-client-secret",
+      resolvedPath: distPath,
     });
   });
 

@@ -31,6 +31,29 @@ async function writeGeminiConstants(pluginRoot: string, clientId: string, client
   );
 }
 
+async function writeGeminiDistBundle(pluginRoot: string, clientId: string, clientSecret: string) {
+  const distDir = path.join(pluginRoot, "dist");
+  await mkdir(distDir, { recursive: true });
+
+  await writeFile(
+    path.join(distDir, "index.js"),
+    `var GEMINI_CLIENT_ID = "${clientId}";\nvar GEMINI_CLIENT_SECRET = "${clientSecret}";\n`,
+    "utf8",
+  );
+  await writeFile(
+    path.join(distDir, "index.js.map"),
+    JSON.stringify({
+      mappings: "",
+      sources: ["../src/constants.ts"],
+      sourcesContent: [
+        `export const GEMINI_CLIENT_ID = "${clientId}";\nexport const GEMINI_CLIENT_SECRET = "${clientSecret}";\n`,
+      ],
+      version: 3,
+    }),
+    "utf8",
+  );
+}
+
 async function writeCursorSnapshot(
   pluginRoot: string,
   params: { modelsSource: string; proxySource: string; packageName?: string },
@@ -187,12 +210,32 @@ describe("upstream-plugin-sanitization", () => {
     tempRoots.push(tempRoot);
 
     await writeGeminiConstants(tempRoot, "SAFE_TEST_CLIENT_ID", "SAFE_TEST_CLIENT_SECRET");
+    await writeGeminiDistBundle(tempRoot, "SAFE_TEST_CLIENT_ID", "SAFE_TEST_CLIENT_SECRET");
 
     await sanitizeUpstreamPluginSnapshot("opencode-gemini-auth", tempRoot);
 
     const constantsSource = await readFile(path.join(tempRoot, "src", "constants.ts"), "utf8");
     expect(constantsSource).toContain("REDACTED_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com");
     expect(constantsSource).toContain("REDACTED_GOOGLE_OAUTH_CLIENT_SECRET");
+
+    const distSource = await readFile(path.join(tempRoot, "dist", "index.js"), "utf8");
+    expect(distSource).toContain("REDACTED_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com");
+    expect(distSource).toContain("REDACTED_GOOGLE_OAUTH_CLIENT_SECRET");
+
+    const sourceMap = await readFile(path.join(tempRoot, "dist", "index.js.map"), "utf8");
+    expect(sourceMap).toContain("REDACTED_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com");
+    expect(sourceMap).toContain("REDACTED_GOOGLE_OAUTH_CLIENT_SECRET");
+    expect(sourceMap).not.toContain("SAFE_TEST_CLIENT_ID");
+    expect(sourceMap).not.toContain("SAFE_TEST_CLIENT_SECRET");
+  });
+
+  it("fails closed when Gemini OAuth targets are all absent", async () => {
+    const tempRoot = await mkdtemp(path.join(os.tmpdir(), "opencode-quota-sanitize-"));
+    tempRoots.push(tempRoot);
+
+    await expect(sanitizeUpstreamPluginSnapshot("opencode-gemini-auth", tempRoot)).rejects.toThrow(
+      "Expected GEMINI_CLIENT_ID and GEMINI_CLIENT_SECRET",
+    );
   });
 
   it("redacts Gemini CLI auth snapshots when constants use single quotes", async () => {

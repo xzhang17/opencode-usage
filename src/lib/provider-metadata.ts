@@ -14,6 +14,7 @@ export type CanonicalQuotaProviderId =
   | "zhipu"
   | "nanogpt"
   | "minimax-coding-plan"
+  | "minimax-china-coding-plan"
   | "kimi-for-coding"
   | "opencode-go";
 
@@ -64,6 +65,8 @@ export const QUOTA_PROVIDER_LABELS: Readonly<Record<string, string>> = {
   zhipu: "Zhipu",
   nanogpt: "NanoGPT",
   "minimax-coding-plan": "MiniMax Coding Plan",
+  "minimax-china-coding-plan": "MiniMax Coding Plan (CN)",
+  "minimax-cn-coding-plan": "MiniMax Coding Plan (CN)",
   "kimi-for-coding": "Kimi Code",
   "kimi-code": "Kimi Code",
   "opencode-go": "OpenCode Go",
@@ -82,6 +85,9 @@ export const QUOTA_PROVIDER_ID_SYNONYMS: Readonly<Record<string, string>> = {
   alibaba: "alibaba-coding-plan",
   "nano-gpt": "nanogpt",
   minimax: "minimax-coding-plan",
+  "minimax-cn": "minimax-china-coding-plan",
+  "minimax-china": "minimax-china-coding-plan",
+  "minimax-cn-coding-plan": "minimax-china-coding-plan",
   kimi: "kimi-for-coding",
   "kimi-for-code": "kimi-for-coding",
   "kimi-code": "kimi-for-coding",
@@ -116,6 +122,12 @@ export const QUOTA_PROVIDER_RUNTIME_IDS: QuotaProviderRuntimeIds = {
   zhipu: ["zhipu", "glm-coding-plan", "zhipu-coding-plan"],
   nanogpt: ["nanogpt", "nano-gpt"],
   "minimax-coding-plan": ["minimax-coding-plan", "minimax"],
+  "minimax-china-coding-plan": [
+    "minimax-china-coding-plan",
+    "minimax-cn-coding-plan",
+    "minimax-cn",
+    "minimax-china",
+  ],
   "kimi-for-coding": ["kimi-for-coding", "kimi", "kimi-code"],
   "opencode-go": ["opencode-go"],
 };
@@ -228,6 +240,13 @@ export const QUOTA_PROVIDER_SHAPES: readonly QuotaProviderShape[] = [
   },
   {
     id: "minimax-coding-plan",
+    autoSetup: "yes",
+    authentication: "opencode_auth_api_key",
+    authFallbacks: ["env_api_key", "global_opencode_config"],
+    quota: "remote_api",
+  },
+  {
+    id: "minimax-china-coding-plan",
     autoSetup: "yes",
     authentication: "opencode_auth_api_key",
     authFallbacks: ["env_api_key", "global_opencode_config"],

@@ -1,4 +1,6 @@
-import { parse, stringify } from "comment-json";
+import commentJson from "comment-json";
+
+const { parse, stringify } = commentJson;
 
 /**
  * Strip trailing commas from JSON content.

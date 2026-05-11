@@ -113,6 +113,10 @@ export function createQuotaProviderRuntimeContext(
       cursorBillingCycleStartDay: runtime.config.cursorBillingCycleStartDay,
       opencodeGoWindows: runtime.config.opencodeGoWindows,
       onlyCurrentModel: runtime.config.onlyCurrentModel,
+      enabledProviders:
+        runtime.config.enabledProviders === "auto"
+          ? "auto"
+          : [...runtime.config.enabledProviders],
       currentModel: runtime.session.sessionMeta?.modelID,
       currentProviderID: runtime.session.sessionMeta?.providerID,
     },

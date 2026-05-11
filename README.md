@@ -200,6 +200,7 @@ Most providers work automatically. If a provider has a “Needs setup” link, o
 | Qwen Code | [Needs setup](#qwen-code) | Local estimation |
 | Alibaba Coding Plan | Automatic | Local estimation |
 | MiniMax Coding Plan | Automatic | Remote API |
+| MiniMax Coding Plan (CN) | Automatic | Remote API |
 | Kimi Code | Automatic | Remote API |
 | Chutes AI | Usually automatic | Remote API |
 | Crof.ai | Manual env/config | Remote API |
@@ -579,7 +580,8 @@ These providers use trusted env vars, trusted user/global OpenCode config, or na
 
 | Provider | Useful checks |
 | --- | --- |
-| MiniMax Coding Plan | Use `MINIMAX_CODING_PLAN_API_KEY` or `MINIMAX_API_KEY`; repo-local provider secrets are ignored. |
+| MiniMax Coding Plan | Use `MINIMAX_CODING_PLAN_API_KEY` or `MINIMAX_API_KEY` for the international endpoint. Runtime/config ids like `minimax` and `minimax-coding-plan` use this provider. Repo-local provider secrets are ignored. |
+| MiniMax Coding Plan (CN) | Use `MINIMAX_CHINA_CODING_PLAN_API_KEY` or trusted user/global OpenCode config under `minimax-china-coding-plan`, `minimax-cn-coding-plan`, `minimax-cn`, or `minimax-china`. Runtime id `minimax-cn-coding-plan` uses this provider. |
 | Kimi Code | Use `KIMI_API_KEY` or `KIMI_CODE_API_KEY`; repo-local provider secrets are ignored. |
 | Chutes AI | Use `CHUTES_API_KEY` or trusted user/global config. |
 | Crof.ai | Use `CROF_API_KEY`, `CROFAI_API_KEY`, or trusted user/global config. |

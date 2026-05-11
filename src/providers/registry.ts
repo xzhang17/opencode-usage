@@ -19,7 +19,10 @@ import { alibabaCodingPlanProvider } from "./alibaba-coding-plan.js";
 import { zaiProvider } from "./zai.js";
 import { zhipuProvider } from "./zhipu.js";
 import { nanoGptProvider } from "./nanogpt.js";
-import { minimaxCodingPlanProvider } from "./minimax-coding-plan.js";
+import {
+  minimaxChinaCodingPlanProvider,
+  minimaxCodingPlanProvider,
+} from "./minimax-coding-plan.js";
 import { opencodeGoProvider } from "./opencode-go.js";
 import { kimiCodeProvider } from "./kimi-code.js";
 
@@ -41,6 +44,7 @@ export function getProviders(): QuotaProvider[] {
     zhipuProvider,
     nanoGptProvider,
     minimaxCodingPlanProvider,
+    minimaxChinaCodingPlanProvider,
     kimiCodeProvider,
     opencodeGoProvider,
   ];

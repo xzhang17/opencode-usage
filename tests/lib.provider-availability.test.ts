@@ -85,6 +85,20 @@ describe("provider availability", () => {
         fallbackOnError: false,
       }),
     ).resolves.toBe(true);
+    await expect(
+      isCanonicalProviderAvailable({
+        ctx: makeCtx({ ids: ["minimax-cn-coding-plan"] }),
+        providerId: "minimax-china-coding-plan",
+        fallbackOnError: false,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      isCanonicalProviderAvailable({
+        ctx: makeCtx({ ids: ["minimax"] }),
+        providerId: "minimax-china-coding-plan",
+        fallbackOnError: false,
+      }),
+    ).resolves.toBe(false);
   });
 
   it("does not treat broad normalization aliases as runtime provider ids", async () => {

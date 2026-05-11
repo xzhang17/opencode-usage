@@ -14,7 +14,7 @@ import type { QuotaFormatStyle } from "./quota-format-style.js";
 
 import { isPercentEntry } from "./entries.js";
 import { fetchSessionTokensForDisplay } from "./session-tokens.js";
-import { getQuotaProviderDisplayLabel } from "./provider-metadata.js";
+import { getQuotaProviderDisplayLabel, normalizeQuotaProviderId } from "./provider-metadata.js";
 import { isCursorProviderId } from "./cursor-pricing.js";
 import { fetchQuotaProviderResult } from "./quota-state.js";
 import {
@@ -115,6 +115,7 @@ function buildQuotaProviderContext(params: {
       onlyCurrentModel: config.onlyCurrentModel,
       currentModel,
       currentProviderID,
+      enabledProviders: config.enabledProviders === "auto" ? "auto" : [...config.enabledProviders],
     },
   };
 }
@@ -123,9 +124,11 @@ export function matchesQuotaProviderCurrentSelection(params: {
   provider: QuotaProvider;
   currentModel?: string;
   currentProviderID?: string;
+  enabledProviders?: string[] | "auto";
 }): boolean {
   if (!params.currentModel && params.currentProviderID) {
-    if (params.provider.id === params.currentProviderID) {
+    const normalizedCurrentProviderID = normalizeQuotaProviderId(params.currentProviderID);
+    if (params.provider.id === normalizedCurrentProviderID) {
       return true;
     }
     if (params.provider.id === "cursor" && isCursorProviderId(params.currentProviderID)) {
@@ -134,7 +137,9 @@ export function matchesQuotaProviderCurrentSelection(params: {
   }
   if (!params.currentModel) return false;
   return params.provider.matchesCurrentModel
-    ? params.provider.matchesCurrentModel(params.currentModel)
+    ? params.provider.matchesCurrentModel(params.currentModel, {
+        enabledProviders: params.enabledProviders ?? "auto",
+      })
     : true;
 }
 
@@ -182,7 +187,12 @@ export async function resolveQuotaRenderSelection(params: {
   const waitingForCurrentSelection = config.onlyCurrentModel && !hasCurrentSelection;
   const filtered = filteringByCurrentSelection
     ? providers.filter((provider) =>
-        matchesQuotaProviderCurrentSelection({ provider, currentModel, currentProviderID }),
+        matchesQuotaProviderCurrentSelection({
+          provider,
+          currentModel,
+          currentProviderID,
+          enabledProviders: config.enabledProviders,
+        }),
       )
     : providers;
 

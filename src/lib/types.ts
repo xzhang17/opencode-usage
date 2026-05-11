@@ -354,6 +354,8 @@ export interface AuthData {
     key: string;
   };
   "minimax-coding-plan"?: MiniMaxAuthData;
+  "minimax-china-coding-plan"?: MiniMaxAuthData;
+  "minimax-cn-coding-plan"?: MiniMaxAuthData;
   "kimi-code"?: KimiAuthData;
   kimi?: KimiAuthData;
 }

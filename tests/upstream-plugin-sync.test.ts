@@ -217,7 +217,7 @@ describe("upstream-plugin-sync", () => {
       "messages: normalizedMessages",
     );
     await expect(
-      readFile(path.join(referenceRoot, "opencode-gemini-auth", "src", "constants.ts"), "utf8"),
+      readFile(path.join(referenceRoot, "opencode-gemini-auth", "dist", "index.js"), "utf8"),
     ).resolves.toContain("REDACTED_GOOGLE_OAUTH_CLIENT_SECRET");
     await expect(readFile(path.join(referenceRoot, "lock.json"), "utf8")).resolves.toContain("\"version\": \"2.0.0\"");
     await expect(readFile(path.join(referenceRoot, "lock.json"), "utf8")).resolves.toContain(
@@ -226,6 +226,38 @@ describe("upstream-plugin-sync", () => {
     await expect(readFile(path.join(referenceRoot, "lock.json"), "utf8")).resolves.toContain(
       "\"repo\": \"PoolPirate/opencode-cursor\"",
     );
+  });
+
+  it("sanitizes unchanged-version copies before swapping them into place", async () => {
+    const geminiLatest = testState.latestByPluginId.get("opencode-gemini-auth");
+    testState.latestByPluginId.set("opencode-gemini-auth", { ...geminiLatest, version: "1.0.0" });
+
+    const geminiDistDir = path.join(
+      testState.repoRoot,
+      "references",
+      "upstream-plugins",
+      "opencode-gemini-auth",
+      "dist",
+    );
+    await mkdir(geminiDistDir, { recursive: true });
+    await writeFile(
+      path.join(geminiDistDir, "index.js"),
+      'var GEMINI_CLIENT_ID = "UNSAFE_CLIENT_ID";\nvar GEMINI_CLIENT_SECRET = "UNSAFE_CLIENT_SECRET";\n',
+      "utf8",
+    );
+
+    const { syncUpstreamPluginReferences } = await import("../scripts/lib/upstream-plugin-sync.mjs");
+    await syncUpstreamPluginReferences();
+
+    const referenceRoot = path.join(testState.repoRoot, "references", "upstream-plugins");
+    const geminiBundle = await readFile(
+      path.join(referenceRoot, "opencode-gemini-auth", "dist", "index.js"),
+      "utf8",
+    );
+    expect(geminiBundle).toContain("REDACTED_GOOGLE_OAUTH_CLIENT_ID.apps.googleusercontent.com");
+    expect(geminiBundle).toContain("REDACTED_GOOGLE_OAUTH_CLIENT_SECRET");
+    expect(geminiBundle).not.toContain("UNSAFE_CLIENT_ID");
+    expect(geminiBundle).not.toContain("UNSAFE_CLIENT_SECRET");
   });
 
   it("leaves the committed reference tree untouched when staging fails", async () => {

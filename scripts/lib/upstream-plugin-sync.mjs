@@ -5,7 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { replacePath, safeRm } from "./upstream-plugin-fs.mjs";
-import { serializeUpstreamPluginLock } from "./upstream-plugin-lock.mjs";
+import { readUpstreamPluginLock, serializeUpstreamPluginLock } from "./upstream-plugin-lock.mjs";
 import { upstreamPluginReferenceRoot } from "./upstream-plugin-paths.mjs";
 import { downloadTarball, fetchLatestPublishedPluginVersion } from "./upstream-plugin-registry.mjs";
 import { sanitizeUpstreamPluginSnapshot } from "./upstream-plugin-sanitization.mjs";
@@ -52,10 +52,26 @@ async function copyPreservedRootEntries(stageRoot) {
   }
 }
 
-async function stageOnePlugin(latest, stageRoot) {
+async function stageOnePlugin(latest, stageRoot, previousLock) {
+  const destinationPath = path.join(stageRoot, latest.pluginId);
+  const previousPlugin = previousLock?.plugins?.[latest.pluginId];
+
+  if (previousPlugin?.version === latest.version) {
+    await cp(path.join(upstreamPluginReferenceRoot, latest.pluginId), destinationPath, {
+      force: true,
+      recursive: true,
+    });
+    await sanitizeUpstreamPluginSnapshot(latest.pluginId, destinationPath);
+
+    return {
+      pluginId: latest.pluginId,
+      referenceDir: latest.referenceDir,
+      version: latest.version,
+    };
+  }
+
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), `opencode-quota-${latest.pluginId}-`));
   const tarballPath = path.join(tempRoot, `${latest.pluginId}-${latest.version}.tgz`);
-  const destinationPath = path.join(stageRoot, latest.pluginId);
 
   try {
     await downloadTarball(latest.tarballUrl, tarballPath);
@@ -126,6 +142,7 @@ async function swapStagedReferenceRoot(stageRoot) {
 }
 
 export async function syncUpstreamPluginReferences() {
+  const previousLock = await readUpstreamPluginLock();
   const latestVersions = [];
 
   for (const spec of UPSTREAM_PLUGIN_SPECS) {
@@ -140,7 +157,7 @@ export async function syncUpstreamPluginReferences() {
 
     const syncedPlugins = [];
     for (const latest of latestVersions) {
-      syncedPlugins.push(await stageOnePlugin(latest, stageRoot));
+      syncedPlugins.push(await stageOnePlugin(latest, stageRoot, previousLock));
     }
 
     const lock = buildLock(latestVersions);
