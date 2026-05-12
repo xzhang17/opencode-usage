@@ -4,19 +4,18 @@
  * Normalizes Zhipu quota into generic toast entries.
  */
 
-import type {
-  QuotaProvider,
-  QuotaProviderContext,
-  QuotaProviderResult,
-  QuotaToastEntry,
-} from "../lib/entries.js";
+import type { QuotaProvider, QuotaProviderContext, QuotaProviderResult } from "../lib/entries.js";
 import { queryZhipuQuota } from "../lib/zhipu.js";
 import { isCanonicalProviderAvailable } from "../lib/provider-availability.js";
 import {
   DEFAULT_ZHIPU_AUTH_CACHE_MAX_AGE_MS,
   resolveZhipuAuthCached,
 } from "../lib/zhipu-auth.js";
-import { attemptedErrorResult, attemptedResult, notAttemptedResult } from "./result-helpers.js";
+import {
+  attemptedResult,
+  groupedPercentWindowEntries,
+  mapNullableProviderResult,
+} from "./result-helpers.js";
 
 export const zhipuProvider: QuotaProvider = {
   id: "zhipu",
@@ -46,56 +45,23 @@ export const zhipuProvider: QuotaProvider = {
   async fetch(ctx: QuotaProviderContext): Promise<QuotaProviderResult> {
     const result = await queryZhipuQuota({ requestTimeoutMs: ctx.config?.requestTimeoutMs });
 
-    if (!result) {
-      return notAttemptedResult();
-    }
-
-    if (!result.success) {
-      return attemptedErrorResult("Zhipu", result.error);
-    }
-
-    const entries: QuotaToastEntry[] = [];
-    const group = result.label;
-
-    const fiveHour = result.windows.fiveHour;
-    if (fiveHour) {
-      entries.push({
-        name: `${group} 5h`,
-        group,
-        label: "5h:",
-        percentRemaining: fiveHour.percentRemaining,
-        resetTimeIso: fiveHour.resetTimeIso,
-      });
-    }
-
-    const weekly = result.windows.weekly;
-    if (weekly) {
-      entries.push({
-        name: `${group} Weekly`,
-        group,
-        label: "Weekly:",
-        percentRemaining: weekly.percentRemaining,
-        resetTimeIso: weekly.resetTimeIso,
-      });
-    }
-
-    const mcp = result.windows.mcp;
-    if (mcp) {
-      entries.push({
-        name: `${group} MCP`,
-        group,
-        label: "MCP:",
-        percentRemaining: mcp.percentRemaining,
-        resetTimeIso: mcp.resetTimeIso,
-      });
-    }
-
-    if (entries.length === 0) {
-      entries.push({ name: result.label, percentRemaining: 0 });
-    }
-
-    return attemptedResult(entries, [], {
-      singleWindowDisplayName: result.label,
+    return mapNullableProviderResult(result, {
+      errorLabel: "Zhipu",
+      onSuccess: (result) =>
+        attemptedResult(
+          groupedPercentWindowEntries({
+            group: result.label,
+            windows: [
+              { window: result.windows.fiveHour, suffix: "5h", label: "5h:" },
+              { window: result.windows.weekly, suffix: "Weekly", label: "Weekly:" },
+              { window: result.windows.mcp, suffix: "MCP", label: "MCP:" },
+            ],
+          }),
+          [],
+          {
+            singleWindowDisplayName: result.label,
+          },
+        ),
     });
   },
 };

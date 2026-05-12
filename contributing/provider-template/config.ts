@@ -10,11 +10,9 @@
 
 import { readAuthFile } from "./opencode-auth.js";
 import {
-  extractAuthApiKeyEntry,
-  extractProviderOptionsApiKey,
   getApiKeyDiagnostics,
   getGlobalOpencodeConfigCandidatePaths,
-  resolveApiKey,
+  resolveProviderApiKey,
 } from "./api-key-resolver.js";
 
 const ENV_KEYS = ["EXAMPLE_PROVIDER_API_KEY"] as const;
@@ -32,22 +30,18 @@ export interface ExampleProviderApiKeyResult {
 }
 
 export async function resolveExampleProviderApiKey(): Promise<ExampleProviderApiKeyResult | null> {
-  return resolveApiKey<ExampleProviderKeySource>(
-    {
-      envVars: [{ name: "EXAMPLE_PROVIDER_API_KEY", source: "env:EXAMPLE_PROVIDER_API_KEY" }],
-      extractFromConfig: (config) =>
-        extractProviderOptionsApiKey(config, {
-          providerKeys: PROVIDER_KEYS,
-          allowedEnvVars: ENV_KEYS,
-        }),
-      configJsonSource: "opencode.json",
-      configJsoncSource: "opencode.jsonc",
-      extractFromAuth: (auth) => extractAuthApiKeyEntry(auth, PROVIDER_KEYS),
+  return resolveProviderApiKey<ExampleProviderKeySource>({
+    envVars: [{ name: "EXAMPLE_PROVIDER_API_KEY", source: "env:EXAMPLE_PROVIDER_API_KEY" }],
+    providerKeys: PROVIDER_KEYS,
+    allowedEnvVars: ENV_KEYS,
+    configJsonSource: "opencode.json",
+    configJsoncSource: "opencode.jsonc",
+    getConfigCandidates: getGlobalOpencodeConfigCandidatePaths,
+    auth: {
+      readAuth: readAuthFile,
       authSource: "auth.json",
-      getConfigCandidates: getGlobalOpencodeConfigCandidatePaths,
     },
-    readAuthFile,
-  );
+  });
 }
 
 export async function hasExampleProviderApiKey(): Promise<boolean> {

@@ -187,6 +187,33 @@ export interface ResolveApiKeyConfig<Source extends string>
   authSource: Source;
 }
 
+export interface ResolveProviderApiKeyConfig<Source extends string> {
+  /** Environment variables to check (in order) */
+  envVars: EnvVarDef<Source>[];
+
+  /** Provider keys to inspect under provider.<key>.options.apiKey */
+  providerKeys: readonly string[];
+
+  /** Allowed env vars for {env:VAR_NAME} config values. */
+  allowedEnvVars?: readonly string[];
+
+  /** Source label for opencode.json */
+  configJsonSource: Source;
+
+  /** Source label for opencode.jsonc */
+  configJsoncSource: Source;
+
+  /** Candidate config file paths to trust for provider-secret lookup. */
+  getConfigCandidates?: () => ConfigCandidate[];
+
+  /** Optional auth.json fallback config. Omit for providers without auth fallback. */
+  auth?: {
+    readAuth: () => Promise<unknown | null>;
+    authKeys?: readonly string[];
+    authSource: Source;
+  };
+}
+
 export interface ApiKeyCheckedPathsConfig {
   /** Environment variable names to check */
   envVarNames: string[];
@@ -279,6 +306,35 @@ export async function resolveApiKey<Source extends string>(
   }
 
   return null;
+}
+
+export async function resolveProviderApiKey<Source extends string>(
+  config: ResolveProviderApiKeyConfig<Source>,
+): Promise<ApiKeyResult<Source> | null> {
+  const envAndConfig = {
+    envVars: config.envVars,
+    extractFromConfig: (candidate: unknown) =>
+      extractProviderOptionsApiKey(candidate, {
+        providerKeys: config.providerKeys,
+        allowedEnvVars: config.allowedEnvVars,
+      }),
+    configJsonSource: config.configJsonSource,
+    configJsoncSource: config.configJsoncSource,
+    getConfigCandidates: config.getConfigCandidates,
+  };
+
+  if (!config.auth) {
+    return resolveApiKeyFromEnvAndConfig(envAndConfig);
+  }
+
+  return resolveApiKey(
+    {
+      ...envAndConfig,
+      extractFromAuth: (auth) => extractAuthApiKeyEntry(auth, config.auth?.authKeys ?? config.providerKeys),
+      authSource: config.auth.authSource,
+    },
+    config.auth.readAuth,
+  );
 }
 
 /** Configuration for API key diagnostics */

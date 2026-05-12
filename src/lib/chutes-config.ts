@@ -10,11 +10,9 @@
 
 import { readAuthFile } from "./opencode-auth.js";
 import {
-  extractAuthApiKeyEntry,
-  extractProviderOptionsApiKey,
   getApiKeyDiagnostics,
   getGlobalOpencodeConfigCandidatePaths,
-  resolveApiKey,
+  resolveProviderApiKey,
 } from "./api-key-resolver.js";
 
 /** Result of Chutes API key resolution */
@@ -47,22 +45,18 @@ export { getGlobalOpencodeConfigCandidatePaths as getOpencodeConfigCandidatePath
  * @returns API key and source, or null if not found
  */
 export async function resolveChutesApiKey(): Promise<ChutesApiKeyResult | null> {
-  return resolveApiKey<ChutesKeySource>(
-    {
-      envVars: [{ name: "CHUTES_API_KEY", source: "env:CHUTES_API_KEY" }],
-      extractFromConfig: (config) =>
-        extractProviderOptionsApiKey(config, {
-          providerKeys: CHUTES_PROVIDER_KEYS,
-          allowedEnvVars: ALLOWED_CHUTES_ENV_VARS,
-        }),
-      configJsonSource: "opencode.json",
-      configJsoncSource: "opencode.jsonc",
-      extractFromAuth: (auth) => extractAuthApiKeyEntry(auth, CHUTES_PROVIDER_KEYS),
+  return resolveProviderApiKey<ChutesKeySource>({
+    envVars: [{ name: "CHUTES_API_KEY", source: "env:CHUTES_API_KEY" }],
+    providerKeys: CHUTES_PROVIDER_KEYS,
+    allowedEnvVars: ALLOWED_CHUTES_ENV_VARS,
+    configJsonSource: "opencode.json",
+    configJsoncSource: "opencode.jsonc",
+    getConfigCandidates: getGlobalOpencodeConfigCandidatePaths,
+    auth: {
+      readAuth: readAuthFile,
       authSource: "auth.json",
-      getConfigCandidates: getGlobalOpencodeConfigCandidatePaths,
     },
-    readAuthFile,
-  );
+  });
 }
 
 /**

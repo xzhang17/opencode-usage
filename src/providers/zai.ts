@@ -4,19 +4,18 @@
  * Normalizes Z.ai quota into generic toast entries.
  */
 
-import type {
-  QuotaProvider,
-  QuotaProviderContext,
-  QuotaProviderResult,
-  QuotaToastEntry,
-} from "../lib/entries.js";
+import type { QuotaProvider, QuotaProviderContext, QuotaProviderResult } from "../lib/entries.js";
 import { queryZaiQuota } from "../lib/zai.js";
 import { isCanonicalProviderAvailable } from "../lib/provider-availability.js";
 import {
   DEFAULT_ZAI_AUTH_CACHE_MAX_AGE_MS,
   resolveZaiAuthCached,
 } from "../lib/zai-auth.js";
-import { attemptedErrorResult, attemptedResult, notAttemptedResult } from "./result-helpers.js";
+import {
+  attemptedResult,
+  groupedPercentWindowEntries,
+  mapNullableProviderResult,
+} from "./result-helpers.js";
 
 export const zaiProvider: QuotaProvider = {
   id: "zai",
@@ -49,56 +48,23 @@ export const zaiProvider: QuotaProvider = {
   async fetch(ctx: QuotaProviderContext): Promise<QuotaProviderResult> {
     const result = await queryZaiQuota({ requestTimeoutMs: ctx.config?.requestTimeoutMs });
 
-    if (!result) {
-      return notAttemptedResult();
-    }
-
-    if (!result.success) {
-      return attemptedErrorResult("Z.ai", result.error);
-    }
-
-    const entries: QuotaToastEntry[] = [];
-    const group = result.label;
-
-    const fiveHour = result.windows.fiveHour;
-    if (fiveHour) {
-      entries.push({
-        name: `${group} 5h`,
-        group,
-        label: "5h:",
-        percentRemaining: fiveHour.percentRemaining,
-        resetTimeIso: fiveHour.resetTimeIso,
-      });
-    }
-
-    const weekly = result.windows.weekly;
-    if (weekly) {
-      entries.push({
-        name: `${group} Weekly`,
-        group,
-        label: "Weekly:",
-        percentRemaining: weekly.percentRemaining,
-        resetTimeIso: weekly.resetTimeIso,
-      });
-    }
-
-    const mcp = result.windows.mcp;
-    if (mcp) {
-      entries.push({
-        name: `${group} MCP`,
-        group,
-        label: "MCP:",
-        percentRemaining: mcp.percentRemaining,
-        resetTimeIso: mcp.resetTimeIso,
-      });
-    }
-
-    if (entries.length === 0) {
-      entries.push({ name: result.label, percentRemaining: 0 });
-    }
-
-    return attemptedResult(entries, [], {
-      singleWindowDisplayName: result.label,
+    return mapNullableProviderResult(result, {
+      errorLabel: "Z.ai",
+      onSuccess: (result) =>
+        attemptedResult(
+          groupedPercentWindowEntries({
+            group: result.label,
+            windows: [
+              { window: result.windows.fiveHour, suffix: "5h", label: "5h:" },
+              { window: result.windows.weekly, suffix: "Weekly", label: "Weekly:" },
+              { window: result.windows.mcp, suffix: "MCP", label: "MCP:" },
+            ],
+          }),
+          [],
+          {
+            singleWindowDisplayName: result.label,
+          },
+        ),
     });
   },
 };

@@ -16,10 +16,13 @@ vi.mock("os", async (importOriginal) => {
 });
 
 import {
+  createQuotaProviderRuntimeContext,
   resolveQuotaRuntimeContext,
   type QuotaRuntimeClient,
 } from "../src/lib/quota-runtime-context.js";
 import { resolveRuntimeContextRoots } from "../src/lib/config-file-utils.js";
+import { createLoadConfigMeta } from "../src/lib/config.js";
+import { DEFAULT_CONFIG } from "../src/lib/types.js";
 
 function quotaConfigSource(dir: string): string {
   return join(dir, "opencode.json") + " (experimental.quotaToast)";
@@ -184,6 +187,35 @@ describe("quota runtime context", () => {
     expect(runtime.configMeta.paths).not.toContain(
       quotaConfigSource(join(worktreeDir, ".opencode", ".opencode")),
     );
+  });
+
+  it("propagates request timeout config and explicit-source state to provider context", () => {
+    const configMeta = createLoadConfigMeta();
+    configMeta.settingSources.requestTimeoutMs = "test config";
+
+    const providerContext = createQuotaProviderRuntimeContext({
+      client: createClient(),
+      config: {
+        ...DEFAULT_CONFIG,
+        requestTimeoutMs: 12000,
+      },
+      configMeta,
+      session: {},
+    });
+
+    expect(providerContext.config?.requestTimeoutMs).toBe(12000);
+    expect(providerContext.config?.requestTimeoutMsConfigured).toBe(true);
+  });
+
+  it("copies default request timeout without marking it explicitly configured", () => {
+    const providerContext = createQuotaProviderRuntimeContext({
+      client: createClient(),
+      config: DEFAULT_CONFIG,
+      session: {},
+    });
+
+    expect(providerContext.config?.requestTimeoutMs).toBe(DEFAULT_CONFIG.requestTimeoutMs);
+    expect(providerContext.config?.requestTimeoutMsConfigured).toBe(false);
   });
 
   it("resolves session meta only when the shared config requests it", async () => {

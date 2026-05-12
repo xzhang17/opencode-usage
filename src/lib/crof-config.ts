@@ -7,10 +7,9 @@
  */
 
 import {
-  extractProviderOptionsApiKey,
   getApiKeyDiagnostics,
   getGlobalOpencodeConfigCandidatePaths,
-  resolveApiKeyFromEnvAndConfig,
+  resolveProviderApiKey,
 } from "./api-key-resolver.js";
 
 export interface CrofApiKeyResult {
@@ -26,16 +25,13 @@ export type CrofKeySource = "env:CROF_API_KEY" | "env:CROFAI_API_KEY" | "opencod
 export { getGlobalOpencodeConfigCandidatePaths as getOpencodeConfigCandidatePaths } from "./api-key-resolver.js";
 
 export async function resolveCrofApiKey(): Promise<CrofApiKeyResult | null> {
-  return resolveApiKeyFromEnvAndConfig<CrofKeySource>({
+  return resolveProviderApiKey<CrofKeySource>({
     envVars: [
       { name: "CROF_API_KEY", source: "env:CROF_API_KEY" },
       { name: "CROFAI_API_KEY", source: "env:CROFAI_API_KEY" },
     ],
-    extractFromConfig: (config) =>
-      extractProviderOptionsApiKey(config, {
-        providerKeys: CROF_PROVIDER_KEYS,
-        allowedEnvVars: ALLOWED_CROF_ENV_VARS,
-      }),
+    providerKeys: CROF_PROVIDER_KEYS,
+    allowedEnvVars: ALLOWED_CROF_ENV_VARS,
     configJsonSource: "opencode.json",
     configJsoncSource: "opencode.jsonc",
     getConfigCandidates: getGlobalOpencodeConfigCandidatePaths,

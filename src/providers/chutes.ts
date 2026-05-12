@@ -6,7 +6,7 @@ import type { QuotaProvider, QuotaProviderContext, QuotaProviderResult } from ".
 import { queryChutesQuota, hasChutesApiKeyConfigured } from "../lib/chutes.js";
 import { isCanonicalProviderAvailable } from "../lib/provider-availability.js";
 import { modelProviderIncludesAny } from "../lib/provider-model-matching.js";
-import { attemptedErrorResult, attemptedResult, notAttemptedResult } from "./result-helpers.js";
+import { attemptedResult, mapNullableProviderResult } from "./result-helpers.js";
 
 export const chutesProvider: QuotaProvider = {
   id: "chutes",
@@ -29,20 +29,16 @@ export const chutesProvider: QuotaProvider = {
   async fetch(ctx: QuotaProviderContext): Promise<QuotaProviderResult> {
     const result = await queryChutesQuota({ requestTimeoutMs: ctx.config?.requestTimeoutMs });
 
-    if (!result) {
-      return notAttemptedResult();
-    }
-
-    if (!result.success) {
-      return attemptedErrorResult("Chutes", result.error);
-    }
-
-    return attemptedResult([
-      {
-        name: "Chutes",
-        percentRemaining: result.percentRemaining,
-        resetTimeIso: result.resetTimeIso,
-      },
-    ]);
+    return mapNullableProviderResult(result, {
+      errorLabel: "Chutes",
+      onSuccess: (result) =>
+        attemptedResult([
+          {
+            name: "Chutes",
+            percentRemaining: result.percentRemaining,
+            resetTimeIso: result.resetTimeIso,
+          },
+        ]),
+    });
   },
 };

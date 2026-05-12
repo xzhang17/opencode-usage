@@ -100,7 +100,8 @@ export function createQuotaRuntimeRequestContext(
 }
 
 export function createQuotaProviderRuntimeContext(
-  runtime: Pick<QuotaRuntimeContext, "client" | "config" | "session">,
+  runtime: Pick<QuotaRuntimeContext, "client" | "config" | "session"> &
+    Partial<Pick<QuotaRuntimeContext, "configMeta">>,
 ): QuotaProviderContext {
   return {
     client: runtime.client,
@@ -112,6 +113,8 @@ export function createQuotaProviderRuntimeContext(
       cursorIncludedApiUsd: runtime.config.cursorIncludedApiUsd,
       cursorBillingCycleStartDay: runtime.config.cursorBillingCycleStartDay,
       opencodeGoWindows: runtime.config.opencodeGoWindows,
+      requestTimeoutMs: runtime.config.requestTimeoutMs,
+      requestTimeoutMsConfigured: Boolean(runtime.configMeta?.settingSources.requestTimeoutMs),
       onlyCurrentModel: runtime.config.onlyCurrentModel,
       enabledProviders:
         runtime.config.enabledProviders === "auto"

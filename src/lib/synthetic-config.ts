@@ -10,11 +10,9 @@
 
 import { readAuthFile } from "./opencode-auth.js";
 import {
-  extractAuthApiKeyEntry,
-  extractProviderOptionsApiKey,
   getApiKeyDiagnostics,
   getGlobalOpencodeConfigCandidatePaths,
-  resolveApiKey,
+  resolveProviderApiKey,
 } from "./api-key-resolver.js";
 
 /** Result of Synthetic API key resolution */
@@ -47,22 +45,18 @@ export { getGlobalOpencodeConfigCandidatePaths as getOpencodeConfigCandidatePath
  * @returns API key and source, or null if not found
  */
 export async function resolveSyntheticApiKey(): Promise<SyntheticApiKeyResult | null> {
-  return resolveApiKey<SyntheticKeySource>(
-    {
-      envVars: [{ name: "SYNTHETIC_API_KEY", source: "env:SYNTHETIC_API_KEY" }],
-      extractFromConfig: (config) =>
-        extractProviderOptionsApiKey(config, {
-          providerKeys: SYNTHETIC_PROVIDER_KEYS,
-          allowedEnvVars: ALLOWED_SYNTHETIC_ENV_VARS,
-        }),
-      configJsonSource: "opencode.json",
-      configJsoncSource: "opencode.jsonc",
-      extractFromAuth: (auth) => extractAuthApiKeyEntry(auth, SYNTHETIC_PROVIDER_KEYS),
+  return resolveProviderApiKey<SyntheticKeySource>({
+    envVars: [{ name: "SYNTHETIC_API_KEY", source: "env:SYNTHETIC_API_KEY" }],
+    providerKeys: SYNTHETIC_PROVIDER_KEYS,
+    allowedEnvVars: ALLOWED_SYNTHETIC_ENV_VARS,
+    configJsonSource: "opencode.json",
+    configJsoncSource: "opencode.jsonc",
+    getConfigCandidates: getGlobalOpencodeConfigCandidatePaths,
+    auth: {
+      readAuth: readAuthFile,
       authSource: "auth.json",
-      getConfigCandidates: getGlobalOpencodeConfigCandidatePaths,
     },
-    readAuthFile,
-  );
+  });
 }
 
 /**

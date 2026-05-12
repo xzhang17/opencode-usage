@@ -25,3 +25,54 @@ export function attemptedResult(
 export function attemptedErrorResult(label: string, message: string): QuotaProviderResult {
   return attemptedResult([], [{ label, message }]);
 }
+
+export function mapNullableProviderResult<TSuccess extends { success: true }>(
+  result: TSuccess | { success: false; error: string } | null,
+  params: {
+    errorLabel: string;
+    onSuccess: (result: TSuccess) => QuotaProviderResult;
+  },
+): QuotaProviderResult {
+  if (!result) {
+    return notAttemptedResult();
+  }
+
+  if (!result.success) {
+    return attemptedErrorResult(params.errorLabel, result.error);
+  }
+
+  return params.onSuccess(result);
+}
+
+export function groupedPercentWindowEntries(params: {
+  group: string;
+  windows: Array<{
+    window?: {
+      percentRemaining: number;
+      resetTimeIso?: string;
+    };
+    suffix: string;
+    label: string;
+  }>;
+  fallbackWhenEmpty?: boolean;
+}): QuotaToastEntry[] {
+  const entries: QuotaToastEntry[] = [];
+
+  for (const { window, suffix, label } of params.windows) {
+    if (!window) continue;
+
+    entries.push({
+      name: `${params.group} ${suffix}`,
+      group: params.group,
+      label,
+      percentRemaining: window.percentRemaining,
+      resetTimeIso: window.resetTimeIso,
+    });
+  }
+
+  if (entries.length === 0 && params.fallbackWhenEmpty !== false) {
+    entries.push({ name: params.group, percentRemaining: 0 });
+  }
+
+  return entries;
+}

@@ -15,7 +15,7 @@ import {
 } from "../lib/synthetic.js";
 import type { SyntheticQuotaWindow } from "../lib/types.js";
 import { modelProviderIncludesAny } from "../lib/provider-model-matching.js";
-import { attemptedErrorResult, attemptedResult, notAttemptedResult } from "./result-helpers.js";
+import { attemptedResult, mapNullableProviderResult } from "./result-helpers.js";
 
 function formatSyntheticRoundedValue(value: number): string {
   if (!Number.isFinite(value)) return "0";
@@ -67,32 +67,28 @@ export const syntheticProvider: QuotaProvider = {
   async fetch(ctx: QuotaProviderContext): Promise<QuotaProviderResult> {
     const result = await querySyntheticQuota({ requestTimeoutMs: ctx.config?.requestTimeoutMs });
 
-    if (!result) {
-      return notAttemptedResult();
-    }
-
-    if (!result.success) {
-      return attemptedErrorResult("Synthetic", result.error);
-    }
-
-    return attemptedResult(
-      [
-      toSyntheticEntry({
-        window: result.windows.fiveHour,
-        suffix: "5h",
-        label: "5h:",
-      }),
-      toSyntheticEntry({
-        window: result.windows.weekly,
-        suffix: "Weekly",
-        label: "Weekly:",
-        currency: true,
-      }),
-      ],
-      [],
-      {
-        singleWindowShowRight: true,
-      },
-    );
+    return mapNullableProviderResult(result, {
+      errorLabel: "Synthetic",
+      onSuccess: (result) =>
+        attemptedResult(
+          [
+            toSyntheticEntry({
+              window: result.windows.fiveHour,
+              suffix: "5h",
+              label: "5h:",
+            }),
+            toSyntheticEntry({
+              window: result.windows.weekly,
+              suffix: "Weekly",
+              label: "Weekly:",
+              currency: true,
+            }),
+          ],
+          [],
+          {
+            singleWindowShowRight: true,
+          },
+        ),
+    });
   },
 };
