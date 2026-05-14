@@ -36,11 +36,7 @@ jobs:
                 "### Pre-flight checks",
                 "### OpenCode version tested",
                 "### opencode-quota version tested",
-                "### Bug summary",
-                "### Steps to reproduce",
-                "### Expected behavior",
-                "### Actual behavior",
-                "### Relevant logs/output"
+                "### Bug summary"
               ],
               feature: [
                 "### Pre-flight checks",

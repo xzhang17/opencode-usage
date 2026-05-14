@@ -56,31 +56,23 @@ body:
         1. Configure ...
         2. Run ...
         3. Observe ...
-    validations:
-      required: true
 
   - type: textarea
     id: expected
     attributes:
       label: Expected behavior
-    validations:
-      required: true
 
   - type: textarea
     id: actual
     attributes:
       label: Actual behavior
-    validations:
-      required: true
 
   - type: textarea
     id: logs
     attributes:
       label: Relevant logs/output
-      description: "Required: paste `/quota_status` output (add test output if helpful)."
+      description: "Optional: paste `/quota_status` output (add test output if helpful)."
       render: shell
-    validations:
-      required: true
 
   - type: textarea
     id: no_latest_reason
