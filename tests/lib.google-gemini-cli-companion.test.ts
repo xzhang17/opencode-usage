@@ -29,9 +29,24 @@ function moduleNotFound(): Error & { code?: string } {
 }
 
 function packagePathNotExported(): Error & { code?: string } {
-  const error = new Error("Package subpath is not defined by \"exports\"");
+  const error = new Error('Package subpath is not defined by "exports"');
   error.code = "ERR_PACKAGE_PATH_NOT_EXPORTED";
   return error;
+}
+
+function writeGeminiCredentials(
+  path: string,
+  params?: { declaration?: "export const" | "const" | "var" },
+): void {
+  const declaration = params?.declaration ?? "export const";
+  writeFileSync(
+    path,
+    [
+      `${declaration} GEMINI_CLIENT_ID = 'client-id';`,
+      `${declaration} GEMINI_CLIENT_SECRET = 'client-secret';`,
+    ].join("\n"),
+    "utf8",
+  );
 }
 
 describe("google gemini cli companion resolution", () => {
@@ -157,6 +172,24 @@ describe("google gemini cli companion resolution", () => {
     });
   });
 
+  it("reports invalid when package export blocks prove the package exists but no fallback resolves", async () => {
+    moduleMocks.resolveImpl.mockImplementation((specifier) => {
+      if (specifier.startsWith("opencode-gemini-auth/")) {
+        throw packagePathNotExported();
+      }
+      throw moduleNotFound();
+    });
+
+    const mod = await import("../src/lib/google-gemini-cli-companion.js");
+
+    await expect(mod.inspectGeminiCliCompanionPresence()).resolves.toMatchObject({
+      state: "invalid",
+    });
+    await expect(mod.resolveGeminiCliClientCredentials()).resolves.toMatchObject({
+      state: "invalid",
+    });
+  });
+
   it("reads credentials from a v1.4.15 root-only bundle in OpenCode runtime cache node_modules", async () => {
     const runtimeCacheDir = join(tempDir, "cache", "opencode");
     const packageRoot = join(runtimeCacheDir, "node_modules", "opencode-gemini-auth");
@@ -203,9 +236,12 @@ describe("google gemini cli companion resolution", () => {
       clientSecret: "runtime-root-client-secret",
       resolvedPath: distPath,
     });
-    expect(moduleMocks.resolveImpl).toHaveBeenCalledWith("opencode-gemini-auth/dist/src/constants.js", {
-      paths: [runtimeCacheDir],
-    });
+    expect(moduleMocks.resolveImpl).toHaveBeenCalledWith(
+      "opencode-gemini-auth/dist/src/constants.js",
+      {
+        paths: [runtimeCacheDir],
+      },
+    );
   });
 
   it("falls back to root package resolution with OpenCode runtime cache paths", async () => {
@@ -276,8 +312,16 @@ describe("google gemini cli companion resolution", () => {
 
   it("resolves source constants from OpenCode runtime cache node_modules", async () => {
     const runtimeCacheDir = join(tempDir, "cache", "opencode");
-    const constantsPath = join(runtimeCacheDir, "node_modules", "opencode-gemini-auth", "src", "constants.ts");
-    mkdirSync(join(runtimeCacheDir, "node_modules", "opencode-gemini-auth", "src"), { recursive: true });
+    const constantsPath = join(
+      runtimeCacheDir,
+      "node_modules",
+      "opencode-gemini-auth",
+      "src",
+      "constants.ts",
+    );
+    mkdirSync(join(runtimeCacheDir, "node_modules", "opencode-gemini-auth", "src"), {
+      recursive: true,
+    });
     writeFileSync(
       constantsPath,
       [
@@ -298,6 +342,27 @@ describe("google gemini cli companion resolution", () => {
       clientId: "runtime-client-id",
       clientSecret: "runtime-client-secret",
       resolvedPath: constantsPath,
+    });
+  });
+
+  it("directly probes package roots under the runtime packages directory", async () => {
+    const runtimeCacheDir = join(tempDir, "cache", "opencode");
+    const packageRoot = join(runtimeCacheDir, "packages", "opencode-gemini-auth-1.0.0");
+    const distPath = join(packageRoot, "dist", "index.js");
+    mkdirSync(join(packageRoot, "dist"), { recursive: true });
+    writeGeminiCredentials(distPath, { declaration: "var" });
+    moduleMocks.runtimeDirs.value = { cacheDirs: [runtimeCacheDir] };
+    moduleMocks.resolveImpl.mockImplementation(() => {
+      throw moduleNotFound();
+    });
+
+    const mod = await import("../src/lib/google-gemini-cli-companion.js");
+
+    await expect(mod.resolveGeminiCliClientCredentials()).resolves.toMatchObject({
+      state: "configured",
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      resolvedPath: distPath,
     });
   });
 

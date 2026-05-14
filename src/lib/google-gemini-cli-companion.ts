@@ -15,6 +15,12 @@ const COMPANION_JS_IMPORT_SPECIFIERS = [
 ] as const;
 const COMPANION_SOURCE_IMPORT_SPECIFIER = `${COMPANION_PACKAGE_NAME}/src/constants.ts`;
 const COMPANION_PACKAGE_JSON_SPECIFIER = `${COMPANION_PACKAGE_NAME}/package.json`;
+const COMPANION_DIRECT_CANDIDATE_PATHS = [
+  ["src", "constants.ts"],
+  ["src", "constants.js"],
+  ["dist", "src", "constants.js"],
+  ["dist", "index.js"],
+] as const;
 const COMPANION_MISSING_ERROR = `Install ${COMPANION_PACKAGE_NAME} separately to enable Gemini CLI quota`;
 const COMPANION_INVALID_ERROR = `Installed ${COMPANION_PACKAGE_NAME} package is incompatible`;
 
@@ -61,6 +67,10 @@ type CompanionModule = {
   GEMINI_CLIENT_SECRET?: unknown;
 };
 
+type CompanionResolutionContext = {
+  packageFound: boolean;
+};
+
 let resolvedCompanionStatePromise: Promise<ResolvedCompanionState> | null = null;
 
 function isModuleNotFoundError(error: unknown): boolean {
@@ -94,8 +104,14 @@ function normalizeCredential(value: unknown): string {
 }
 
 function getCompanionResolvePaths(): string[] {
+  return [...getOpencodeRuntimeDirCandidates().cacheDirs];
+}
+
+function getRuntimePackageRoots(): string[] {
   const cacheDirs = getOpencodeRuntimeDirCandidates().cacheDirs;
-  const resolvePaths: string[] = [...cacheDirs];
+  const packageRoots = cacheDirs.map((cacheDir) =>
+    join(cacheDir, "node_modules", COMPANION_PACKAGE_NAME),
+  );
 
   for (const cacheDir of cacheDirs) {
     try {
@@ -103,7 +119,7 @@ function getCompanionResolvePaths(): string[] {
       const entries = readdirSync(packagesDir, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.isDirectory() && entry.name.startsWith(COMPANION_PACKAGE_NAME)) {
-          resolvePaths.push(join(packagesDir, entry.name));
+          packageRoots.push(join(packagesDir, entry.name));
         }
       }
     } catch {
@@ -111,17 +127,30 @@ function getCompanionResolvePaths(): string[] {
     }
   }
 
-  return resolvePaths;
+  return packageRoots;
 }
 
-function resolveCompanionSpecifier(specifier: string): string {
+function markPackageFoundForExportBlock(error: unknown, context: CompanionResolutionContext): void {
+  if (isPackagePathNotExportedError(error)) {
+    context.packageFound = true;
+  }
+}
+
+function resolveCompanionSpecifier(specifier: string, context: CompanionResolutionContext): string {
   try {
     return require.resolve(specifier);
   } catch (error) {
+    markPackageFoundForExportBlock(error, context);
     if (!isFallthroughResolutionError(error)) {
       throw error;
     }
-    return require.resolve(specifier, { paths: getCompanionResolvePaths() });
+
+    try {
+      return require.resolve(specifier, { paths: getCompanionResolvePaths() });
+    } catch (resolvePathsError) {
+      markPackageFoundForExportBlock(resolvePathsError, context);
+      throw resolvePathsError;
+    }
   }
 }
 
@@ -162,22 +191,27 @@ function buildInvalidState(importSpecifier: string, resolvedPath?: string): Reso
   };
 }
 
-function parseSourceCredentials(content: string): { clientId: string; clientSecret: string } | null {
+function parseSourceCredentials(
+  content: string,
+): { clientId: string; clientSecret: string } | null {
   const clientId =
-    content.match(/(?:export\s+const|const|var)\s+GEMINI_CLIENT_ID\s*=\s*["']([^"']+)["']/)?.[1]?.trim() ?? "";
+    content
+      .match(/(?:export\s+const|const|var)\s+GEMINI_CLIENT_ID\s*=\s*["']([^"']+)["']/)?.[1]
+      ?.trim() ?? "";
   const clientSecret =
-    content.match(/(?:export\s+const|const|var)\s+GEMINI_CLIENT_SECRET\s*=\s*["']([^"']+)["']/)?.[1]?.trim() ?? "";
+    content
+      .match(/(?:export\s+const|const|var)\s+GEMINI_CLIENT_SECRET\s*=\s*["']([^"']+)["']/)?.[1]
+      ?.trim() ?? "";
 
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
 
+function getPackageCredentialPaths(packageRoot: string): string[] {
+  return COMPANION_DIRECT_CANDIDATE_PATHS.map((parts) => join(packageRoot, ...parts));
+}
+
 function getRuntimeSourceConstantPaths(): string[] {
-  return getCompanionResolvePaths().flatMap((cacheDir) => [
-    join(cacheDir, "node_modules", COMPANION_PACKAGE_NAME, "src", "constants.ts"),
-    join(cacheDir, "node_modules", COMPANION_PACKAGE_NAME, "src", "constants.js"),
-    join(cacheDir, "node_modules", COMPANION_PACKAGE_NAME, "dist", "src", "constants.js"),
-    join(cacheDir, "node_modules", COMPANION_PACKAGE_NAME, "dist", "index.js"),
-  ]);
+  return getRuntimePackageRoots().flatMap((packageRoot) => getPackageCredentialPaths(packageRoot));
 }
 
 async function tryReadSourceConstantsPath(
@@ -202,10 +236,11 @@ async function tryReadSourceConstantsPath(
 
 async function tryResolveJsConstants(
   importSpecifier: string,
+  context: CompanionResolutionContext,
 ): Promise<ResolvedCompanionState | null> {
   let resolvedPath: string;
   try {
-    resolvedPath = resolveCompanionSpecifier(importSpecifier);
+    resolvedPath = resolveCompanionSpecifier(importSpecifier, context);
   } catch (error) {
     if (isFallthroughResolutionError(error)) {
       return null;
@@ -229,9 +264,11 @@ async function tryResolveJsConstants(
   return buildConfiguredState({ importSpecifier, resolvedPath, clientId, clientSecret });
 }
 
-async function tryResolvePackageEntry(): Promise<ResolvedCompanionState | null> {
+async function tryResolvePackageEntry(
+  context: CompanionResolutionContext,
+): Promise<ResolvedCompanionState | null> {
   try {
-    const packageEntryPath = resolveCompanionSpecifier(COMPANION_PACKAGE_NAME);
+    const packageEntryPath = resolveCompanionSpecifier(COMPANION_PACKAGE_NAME, context);
     const packageEntryResolved = await tryReadSourceConstantsPath(packageEntryPath);
     return packageEntryResolved ?? buildInvalidState(COMPANION_PACKAGE_NAME, packageEntryPath);
   } catch (error) {
@@ -239,7 +276,9 @@ async function tryResolvePackageEntry(): Promise<ResolvedCompanionState | null> 
   }
 }
 
-async function tryResolveSourceConstants(): Promise<ResolvedCompanionState | null> {
+async function tryResolveSourceConstants(
+  context: CompanionResolutionContext,
+): Promise<ResolvedCompanionState | null> {
   let resolvedPath: string;
   try {
     resolvedPath = require.resolve(COMPANION_SOURCE_IMPORT_SPECIFIER);
@@ -256,7 +295,7 @@ async function tryResolveSourceConstants(): Promise<ResolvedCompanionState | nul
     }
 
     try {
-      const packageJsonPath = resolveCompanionSpecifier(COMPANION_PACKAGE_JSON_SPECIFIER);
+      const packageJsonPath = resolveCompanionSpecifier(COMPANION_PACKAGE_JSON_SPECIFIER, context);
       const packageRoot = dirname(packageJsonPath);
       for (const candidatePath of [
         join(packageRoot, "src", "constants.ts"),
@@ -270,7 +309,7 @@ async function tryResolveSourceConstants(): Promise<ResolvedCompanionState | nul
       resolvedPath = join(packageRoot, "src", "constants.ts");
     } catch (packageError) {
       if (isFallthroughResolutionError(packageError)) {
-        return tryResolvePackageEntry();
+        return tryResolvePackageEntry(context);
       }
 
       return buildInvalidState(COMPANION_SOURCE_IMPORT_SPECIFIER);
@@ -284,16 +323,22 @@ async function tryResolveSourceConstants(): Promise<ResolvedCompanionState | nul
 }
 
 async function resolveCompanionState(): Promise<ResolvedCompanionState> {
+  const context: CompanionResolutionContext = { packageFound: false };
+
   for (const importSpecifier of COMPANION_JS_IMPORT_SPECIFIERS) {
-    const resolved = await tryResolveJsConstants(importSpecifier);
+    const resolved = await tryResolveJsConstants(importSpecifier, context);
     if (resolved) {
       return resolved;
     }
   }
 
-  const sourceResolved = await tryResolveSourceConstants();
+  const sourceResolved = await tryResolveSourceConstants(context);
   if (sourceResolved) {
     return sourceResolved;
+  }
+
+  if (context.packageFound) {
+    return buildInvalidState(COMPANION_PACKAGE_NAME);
   }
 
   return {

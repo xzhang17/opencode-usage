@@ -104,8 +104,14 @@ function normalizeCredential(value: unknown): string {
 }
 
 function getCompanionResolvePaths(): string[] {
+  return [...getOpencodeRuntimeDirCandidates().cacheDirs];
+}
+
+function getRuntimePackageRoots(): string[] {
   const cacheDirs = getOpencodeRuntimeDirCandidates().cacheDirs;
-  const resolvePaths: string[] = [...cacheDirs];
+  const packageRoots = cacheDirs.map((cacheDir) =>
+    join(cacheDir, "node_modules", COMPANION_PACKAGE_NAME),
+  );
 
   for (const cacheDir of cacheDirs) {
     try {
@@ -113,7 +119,7 @@ function getCompanionResolvePaths(): string[] {
       const entries = readdirSync(packagesDir, { withFileTypes: true });
       for (const entry of entries) {
         if (entry.isDirectory() && entry.name.startsWith(COMPANION_PACKAGE_NAME)) {
-          resolvePaths.push(join(packagesDir, entry.name));
+          packageRoots.push(join(packagesDir, entry.name));
         }
       }
     } catch {
@@ -121,22 +127,16 @@ function getCompanionResolvePaths(): string[] {
     }
   }
 
-  return resolvePaths;
+  return packageRoots;
 }
 
-function markPackageFoundForExportBlock(
-  error: unknown,
-  context: CompanionResolutionContext,
-): void {
+function markPackageFoundForExportBlock(error: unknown, context: CompanionResolutionContext): void {
   if (isPackagePathNotExportedError(error)) {
     context.packageFound = true;
   }
 }
 
-function resolveCompanionSpecifier(
-  specifier: string,
-  context: CompanionResolutionContext,
-): string {
+function resolveCompanionSpecifier(specifier: string, context: CompanionResolutionContext): string {
   try {
     return require.resolve(specifier);
   } catch (error) {
@@ -191,11 +191,17 @@ function buildInvalidState(importSpecifier: string, resolvedPath?: string): Reso
   };
 }
 
-function parseSourceCredentials(content: string): { clientId: string; clientSecret: string } | null {
+function parseSourceCredentials(
+  content: string,
+): { clientId: string; clientSecret: string } | null {
   const clientId =
-    content.match(/(?:export\s+const|const|var)\s+ANTIGRAVITY_CLIENT_ID\s*=\s*["']([^"']+)["']/)?.[1]?.trim() ?? "";
+    content
+      .match(/(?:export\s+const|const|var)\s+ANTIGRAVITY_CLIENT_ID\s*=\s*["']([^"']+)["']/)?.[1]
+      ?.trim() ?? "";
   const clientSecret =
-    content.match(/(?:export\s+const|const|var)\s+ANTIGRAVITY_CLIENT_SECRET\s*=\s*["']([^"']+)["']/)?.[1]?.trim() ?? "";
+    content
+      .match(/(?:export\s+const|const|var)\s+ANTIGRAVITY_CLIENT_SECRET\s*=\s*["']([^"']+)["']/)?.[1]
+      ?.trim() ?? "";
 
   return clientId && clientSecret ? { clientId, clientSecret } : null;
 }
@@ -205,9 +211,7 @@ function getPackageCredentialPaths(packageRoot: string): string[] {
 }
 
 function getRuntimeCredentialPaths(): string[] {
-  return getCompanionResolvePaths().flatMap((cacheDir) =>
-    getPackageCredentialPaths(join(cacheDir, "node_modules", COMPANION_PACKAGE_NAME)),
-  );
+  return getRuntimePackageRoots().flatMap((packageRoot) => getPackageCredentialPaths(packageRoot));
 }
 
 function isMissingFileError(error: unknown): boolean {
@@ -332,9 +336,7 @@ async function tryResolvePackageEntry(
   try {
     packageEntryPath = resolveCompanionSpecifier(COMPANION_PACKAGE_NAME, context);
   } catch (error) {
-    return isFallthroughResolutionError(error)
-      ? null
-      : buildInvalidState(COMPANION_PACKAGE_NAME);
+    return isFallthroughResolutionError(error) ? null : buildInvalidState(COMPANION_PACKAGE_NAME);
   }
 
   return (

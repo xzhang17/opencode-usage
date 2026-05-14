@@ -29,12 +29,15 @@ function moduleNotFound(): Error & { code?: string } {
 }
 
 function packagePathNotExported(): Error & { code?: string } {
-  const error = new Error("Package subpath is not defined by \"exports\"");
+  const error = new Error('Package subpath is not defined by "exports"');
   error.code = "ERR_PACKAGE_PATH_NOT_EXPORTED";
   return error;
 }
 
-function writeAntigravityCredentials(path: string, params?: { declaration?: "export const" | "const" | "var" }): void {
+function writeAntigravityCredentials(
+  path: string,
+  params?: { declaration?: "export const" | "const" | "var" },
+): void {
   const declaration = params?.declaration ?? "export const";
   writeFileSync(
     path,
@@ -218,6 +221,27 @@ describe("google antigravity companion resolution", () => {
     const packageRoot = join(runtimeCacheDir, "node_modules", "opencode-antigravity-auth");
     const candidatePath = join(packageRoot, ...dirs, fileName);
     mkdirSync(join(packageRoot, ...dirs), { recursive: true });
+    writeAntigravityCredentials(candidatePath, { declaration: "var" });
+    moduleMocks.runtimeDirs.value = { cacheDirs: [runtimeCacheDir] };
+    moduleMocks.resolveImpl.mockImplementation(() => {
+      throw moduleNotFound();
+    });
+
+    const mod = await import("../src/lib/google-antigravity-companion.js");
+
+    await expect(mod.resolveAntigravityClientCredentials()).resolves.toMatchObject({
+      state: "configured",
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      resolvedPath: candidatePath,
+    });
+  });
+
+  it("directly probes package roots under the runtime packages directory", async () => {
+    const runtimeCacheDir = join(tempDir, "cache", "opencode");
+    const packageRoot = join(runtimeCacheDir, "packages", "opencode-antigravity-auth-1.0.0");
+    const candidatePath = join(packageRoot, "dist", "index.js");
+    mkdirSync(join(packageRoot, "dist"), { recursive: true });
     writeAntigravityCredentials(candidatePath, { declaration: "var" });
     moduleMocks.runtimeDirs.value = { cacheDirs: [runtimeCacheDir] };
     moduleMocks.resolveImpl.mockImplementation(() => {
