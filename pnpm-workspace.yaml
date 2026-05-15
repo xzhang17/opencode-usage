@@ -3,6 +3,6 @@ minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 blockExoticSubdeps: true
 
-onlyBuiltDependencies:
-  - esbuild
-  - msgpackr-extract
+allowBuilds:
+  esbuild: true
+  msgpackr-extract: true

@@ -26,7 +26,9 @@ describe("package manifest compatibility", () => {
     expect(pnpmWorkspace).toContain("minimumReleaseAgeStrict: true");
     expect(pnpmWorkspace).toContain("minimumReleaseAgeIgnoreMissingTime: false");
     expect(pnpmWorkspace).toContain("blockExoticSubdeps: true");
-    expect(pnpmWorkspace).toContain("onlyBuiltDependencies:");
+    expect(pnpmWorkspace).toContain("allowBuilds:");
+    expect(pnpmWorkspace).toContain("esbuild: true");
+    expect(pnpmWorkspace).toContain("msgpackr-extract: true");
   });
 
   it("ships explicit server, tui, and init bin entrypoints for OpenCode", () => {
