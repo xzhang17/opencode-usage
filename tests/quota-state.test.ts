@@ -351,3 +351,190 @@ describe("quota-state shared cache", () => {
     expect(provider.fetch).toHaveBeenCalledTimes(2);
   });
 });
+
+describe("readCachedProviderResult", () => {
+  beforeEach(async () => {
+    vi.restoreAllMocks();
+    vi.resetModules();
+    await rm(TEST_RUNTIME_ROOT, { recursive: true, force: true });
+  });
+
+  afterEach(async () => {
+    vi.restoreAllMocks();
+    vi.resetModules();
+    await rm(TEST_RUNTIME_ROOT, { recursive: true, force: true });
+  });
+
+  it("returns { hit: false } when no memory or disk cache entry exists", async () => {
+    const { __resetQuotaStateForTests, readCachedProviderResult } = await import(
+      "../src/lib/quota-state.js"
+    );
+    __resetQuotaStateForTests();
+
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn(),
+      fetch: vi.fn(),
+    } as any;
+
+    const result = await readCachedProviderResult({
+      provider,
+      ctx: createTestContext(),
+      ttlMs: 60_000,
+    });
+
+    expect(result).toEqual({ hit: false });
+  });
+
+  it("returns { hit: true, stale: false } when cache is within TTL", async () => {
+    const { __resetQuotaStateForTests, fetchQuotaProviderResult, readCachedProviderResult } =
+      await import("../src/lib/quota-state.js");
+    __resetQuotaStateForTests();
+
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn(),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 75 }],
+        errors: [],
+      }),
+    } as any;
+
+    await fetchQuotaProviderResult({
+      provider,
+      ctx: createTestContext(),
+      ttlMs: 60_000,
+    });
+
+    const result = await readCachedProviderResult({
+      provider,
+      ctx: createTestContext(),
+      ttlMs: 60_000,
+    });
+
+    expect(result).toMatchObject({
+      hit: true,
+      stale: false,
+      result: {
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 75 }],
+        errors: [],
+      },
+    });
+  });
+
+  it("returns { hit: true, stale: true } when cache entry is older than ttlMs", async () => {
+    const quotaStateA = await import("../src/lib/quota-state.js");
+    quotaStateA.__resetQuotaStateForTests();
+
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn(),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 55 }],
+        errors: [],
+      }),
+    } as any;
+    const ctx = createTestContext();
+    const key = quotaStateA.buildQuotaProviderStateCacheKey(provider.id, ctx);
+    const path = quotaStateA.getQuotaProviderStateCacheFilePath(provider.id, key);
+    const { getPackageVersion } = await import("../src/lib/version.js");
+    const packageVersion = (await getPackageVersion()) ?? "unknown";
+
+    await mkdir(`${TEST_RUNTIME_ROOT}/cache/quota-provider-state`, { recursive: true });
+    // Write a disk entry with an old timestamp (2 minutes ago).
+    await writeFile(
+      path,
+      JSON.stringify({
+        version: 1,
+        packageVersion,
+        key,
+        providerId: provider.id,
+        timestamp: Date.now() - 120_000,
+        result: {
+          attempted: true,
+          entries: [{ name: "Synthetic", percentRemaining: 55 }],
+          errors: [],
+        },
+      }),
+      "utf-8",
+    );
+
+    vi.resetModules();
+    const quotaStateB = await import("../src/lib/quota-state.js");
+    const result = await quotaStateB.readCachedProviderResult({
+      provider,
+      ctx,
+      ttlMs: 60_000, // 1 minute TTL — entry is older
+    });
+
+    expect(result).toMatchObject({
+      hit: true,
+      stale: true,
+      result: {
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 55 }],
+        errors: [],
+      },
+    });
+  });
+
+  it("populates inMemoryCache from disk entry on first read", async () => {
+    const quotaStateA = await import("../src/lib/quota-state.js");
+    quotaStateA.__resetQuotaStateForTests();
+
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn(),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 42 }],
+        errors: [],
+      }),
+    } as any;
+    const ctx = createTestContext();
+    const key = quotaStateA.buildQuotaProviderStateCacheKey(provider.id, ctx);
+    const path = quotaStateA.getQuotaProviderStateCacheFilePath(provider.id, key);
+    const { getPackageVersion } = await import("../src/lib/version.js");
+    const packageVersion = (await getPackageVersion()) ?? "unknown";
+
+    await mkdir(`${TEST_RUNTIME_ROOT}/cache/quota-provider-state`, { recursive: true });
+    await writeFile(
+      path,
+      JSON.stringify({
+        version: 1,
+        packageVersion,
+        key,
+        providerId: provider.id,
+        timestamp: Date.now(),
+        result: {
+          attempted: true,
+          entries: [{ name: "Synthetic", percentRemaining: 42 }],
+          errors: [],
+        },
+      }),
+      "utf-8",
+    );
+
+    // First read: populates inMemoryCache from disk.
+    const first = await quotaStateA.readCachedProviderResult({
+      provider,
+      ctx,
+      ttlMs: 60_000,
+    });
+    expect(first).toMatchObject({ hit: true, result: { entries: [{ percentRemaining: 42 }] } });
+
+    // Mutate the returned result to verify the cache stores a clone.
+    (first as any).result.entries[0].percentRemaining = 999;
+
+    // Second read: should still return the original cached value (not the mutated one).
+    const second = await quotaStateA.readCachedProviderResult({
+      provider,
+      ctx,
+      ttlMs: 60_000,
+    });
+    expect(second).toMatchObject({ hit: true, result: { entries: [{ percentRemaining: 42 }] } });
+  });
+});

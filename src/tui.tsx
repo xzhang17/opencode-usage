@@ -24,6 +24,7 @@ import {
   loadTuiHomeBottomStatus,
   loadTuiSessionQuotaSurfaces,
   resolveTuiSurfaceRegistration,
+  writeTuiQuotaExportIfEnabled,
 } from "./lib/tui-runtime.js";
 
 const id = "@slkiser/opencode-quota";
@@ -222,6 +223,8 @@ function createHomeBottomResource(api: TuiPluginApi): HomeBottomResource {
       .then((next) => {
         if (disposed || currentVersion !== loadVersion) return;
         setBottom(next);
+        // Fire-and-forget: write export file if enabled.
+        void writeTuiQuotaExportIfEnabled({ api }).catch(() => {});
       })
       .catch(() => {
         if (disposed || currentVersion !== loadVersion) return;

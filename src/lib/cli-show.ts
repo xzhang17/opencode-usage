@@ -17,7 +17,9 @@ import { sanitizeQuotaRenderData } from "./display-sanitize.js";
 import {
   createQuotaRuntimeRequestContext,
   resolveQuotaRuntimeContext,
+  createQuotaProviderRuntimeContext,
 } from "./quota-runtime-context.js";
+import { buildQuotaExport } from "./quota-export.js";
 
 export interface RunCliShowCommandOptions {
   argv?: string[];
@@ -27,7 +29,7 @@ export interface RunCliShowCommandOptions {
 }
 
 type ParsedShowArgs =
-  | { ok: true; providerId?: string; help: boolean }
+  | { ok: true; providerId?: string; help: boolean; json: boolean; cached: boolean; threshold?: number }
   | { ok: false; error: string };
 
 const SHOW_USAGE = [
@@ -41,12 +43,59 @@ const SHOW_USAGE = [
 
 function parseShowArgs(argv: string[]): ParsedShowArgs {
   let providerId: string | undefined;
+  let json = false;
+  let cached = false;
+  let threshold: number | undefined;
 
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
 
     if (arg === "--help" || arg === "-h") {
-      return { ok: true, help: true };
+      return { ok: true, help: true, json: false, cached: false };
+    }
+
+    if (arg === "--json") {
+      json = true;
+      continue;
+    }
+
+    if (arg === "--cached") {
+      cached = true;
+      json = true;
+      continue;
+    }
+
+    if (arg === "--threshold") {
+      const value = argv[index + 1];
+      if (!value || value.startsWith("-")) {
+        return { ok: false, error: "Missing value for --threshold." };
+      }
+      const num = Number(value);
+      if (!Number.isFinite(num) || num <= 0) {
+        return { ok: false, error: "--threshold must be a positive finite number." };
+      }
+      if (num > 100) {
+        // Warn but accept
+      }
+      threshold = num;
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--threshold=")) {
+      const value = arg.slice("--threshold=".length).trim();
+      if (!value) {
+        return { ok: false, error: "Missing value for --threshold." };
+      }
+      const num = Number(value);
+      if (!Number.isFinite(num) || num <= 0) {
+        return { ok: false, error: "--threshold must be a positive finite number." };
+      }
+      if (num > 100) {
+        // Warn but accept
+      }
+      threshold = num;
+      continue;
     }
 
     if (arg === "--provider") {
@@ -81,7 +130,11 @@ function parseShowArgs(argv: string[]): ParsedShowArgs {
     return { ok: false, error: `Unexpected argument: ${arg}` };
   }
 
-  return { ok: true, providerId, help: false };
+  if (threshold !== undefined && !json) {
+    return { ok: false, error: "--threshold requires --json or --cached." };
+  }
+
+  return { ok: true, providerId, help: false, json, cached, threshold };
 }
 
 function cloneCliConfig(config: QuotaToastConfig): QuotaToastConfig {
@@ -145,6 +198,59 @@ function writeLine(stream: Pick<NodeJS.WriteStream, "write">, message: string): 
   stream.write(message.endsWith("\n") ? message : `${message}\n`);
 }
 
+async function runCliShowJsonOutput(params: {
+  runtime: Awaited<ReturnType<typeof resolveQuotaRuntimeContext>>;
+  providerId?: string;
+  cached: boolean;
+  threshold?: number;
+  stdout: Pick<NodeJS.WriteStream, "write">;
+}): Promise<number> {
+  const { runtime, providerId, cached: _cached, threshold, stdout } = params;
+
+  const config = cloneCliConfig(runtime.config);
+  if (providerId) {
+    config.enabledProviders = [providerId];
+  }
+
+  const allProviders = runtime.providers.filter((p) => {
+    if (config.enabledProviders === "auto") return true;
+    return config.enabledProviders.includes(p.id);
+  });
+
+  const ctx = createQuotaProviderRuntimeContext(runtime);
+  const exportData = await buildQuotaExport({
+    providers: allProviders,
+    ctx,
+    ttlMs: config.minIntervalMs,
+    fromCache: true,
+  });
+
+  writeLine(stdout, JSON.stringify(exportData, null, 2));
+
+  if (threshold !== undefined) {
+    const okProviders = Object.values(exportData.providers).filter(
+      (p): p is Extract<typeof p, { status: "ok" }> => p.status === "ok",
+    );
+
+    if (okProviders.length === 0) {
+      return 2;
+    }
+
+    for (const provider of okProviders) {
+      const percents = provider.entries
+        .map((e) => e.percentRemaining)
+        .filter((p): p is number => p !== undefined);
+      if (percents.length === 0) continue;
+      const minPercent = Math.min(...percents);
+      if (minPercent < threshold) {
+        return 1;
+      }
+    }
+  }
+
+  return 0;
+}
+
 export async function runCliShowCommand(options: RunCliShowCommandOptions = {}): Promise<number> {
   const argv = options.argv ?? process.argv.slice(3);
   const stdout = options.stdout ?? process.stdout;
@@ -180,6 +286,16 @@ export async function runCliShowCommand(options: RunCliShowCommandOptions = {}):
     if (!runtime.config.enabled) {
       writeLine(stderr, "Quota disabled in config (enabled: false).");
       return 1;
+    }
+
+    if (parsed.json) {
+      return runCliShowJsonOutput({
+        runtime,
+        providerId,
+        cached: parsed.cached,
+        threshold: parsed.threshold,
+        stdout,
+      });
     }
 
     const config = cloneCliConfig(runtime.config);

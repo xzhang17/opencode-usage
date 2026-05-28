@@ -10,6 +10,12 @@ const { collectQuotaRenderData, buildCompactQuotaStatusLine, buildSidebarQuotaPa
     buildSidebarQuotaPanelLines: vi.fn(),
   }));
 
+const { buildQuotaExport: mockBuildQuotaExport, writeQuotaExport: mockWriteQuotaExport } =
+  vi.hoisted(() => ({
+    buildQuotaExport: vi.fn(),
+    writeQuotaExport: vi.fn(),
+  }));
+
 vi.mock("../src/lib/quota-render-data.js", async () => {
   const actual = await vi.importActual<typeof import("../src/lib/quota-render-data.js")>(
     "../src/lib/quota-render-data.js",
@@ -40,6 +46,17 @@ vi.mock("../src/lib/tui-compact-format.js", async () => {
   };
 });
 
+vi.mock("../src/lib/quota-export.js", async () => {
+  const actual = await vi.importActual<typeof import("../src/lib/quota-export.js")>(
+    "../src/lib/quota-export.js",
+  );
+  return {
+    ...actual,
+    buildQuotaExport: mockBuildQuotaExport,
+    writeQuotaExport: mockWriteQuotaExport,
+  };
+});
+
 import {
   getTuiSessionModelMeta,
   loadSidebarPanel,
@@ -49,6 +66,7 @@ import {
   resolveTuiCompactStatusRegistration,
   resolveTuiSurfaceRegistration,
   resolveWorkspaceDir,
+  writeTuiQuotaExportIfEnabled,
 } from "../src/lib/tui-runtime.js";
 
 describe("tui runtime helpers", () => {
@@ -1358,5 +1376,176 @@ describe("tui runtime helpers", () => {
       maxWidth: 40,
     });
     expect(buildSidebarQuotaPanelLines).not.toHaveBeenCalled();
+  });
+
+  describe("writeTuiQuotaExportIfEnabled", () => {
+    beforeEach(() => {
+      mockBuildQuotaExport.mockReset();
+      mockWriteQuotaExport.mockReset();
+    });
+
+    it("does not write when config.export.enabled is false", async () => {
+      writeFileSync(
+        join(worktreeDir, "opencode.json"),
+        JSON.stringify({
+          experimental: {
+            quotaToast: {
+              enabled: true,
+              export: { enabled: false },
+            },
+          },
+        }),
+        "utf8",
+      );
+
+      await writeTuiQuotaExportIfEnabled({
+        api: {
+          state: {
+            provider: [],
+            path: {
+              worktree: worktreeDir,
+              directory: nestedDir,
+            },
+            session: {
+              messages: () => [],
+            },
+          },
+          client: {},
+        } as any,
+      });
+
+      expect(mockBuildQuotaExport).not.toHaveBeenCalled();
+      expect(mockWriteQuotaExport).not.toHaveBeenCalled();
+    });
+
+    it("writes a valid QuotaExport JSON file when export is enabled", async () => {
+      mockBuildQuotaExport.mockResolvedValue({
+        version: 1,
+        exportedAt: Math.floor(Date.now() / 1000),
+        fromCache: true,
+        cacheAgeSeconds: 0,
+        providers: {
+          synthetic: {
+            status: "ok",
+            fetchedAt: Math.floor(Date.now() / 1000),
+            entries: [{ name: "Synthetic", percentRemaining: 80, unlimited: false }],
+          },
+        },
+      });
+
+      writeFileSync(
+        join(worktreeDir, "opencode.json"),
+        JSON.stringify({
+          experimental: {
+            quotaToast: {
+              enabled: true,
+              export: { enabled: true, path: "/tmp/test-tui-export.json" },
+            },
+          },
+        }),
+        "utf8",
+      );
+
+      await writeTuiQuotaExportIfEnabled({
+        api: {
+          state: {
+            provider: [],
+            path: {
+              worktree: worktreeDir,
+              directory: nestedDir,
+            },
+            session: {
+              messages: () => [],
+            },
+          },
+          client: {},
+        } as any,
+      });
+
+      expect(mockBuildQuotaExport).toHaveBeenCalledOnce();
+      expect(mockWriteQuotaExport).toHaveBeenCalledOnce();
+      // The resolved path should be the configured absolute path.
+      const writeCall = mockWriteQuotaExport.mock.calls[0];
+      expect(writeCall[1]).toBe("/tmp/test-tui-export.json");
+      // The export data should be the result from buildQuotaExport.
+      expect(writeCall[0].version).toBe(1);
+      expect(writeCall[0].providers.synthetic.entries[0].percentRemaining).toBe(80);
+    });
+
+    it("propagates writeQuotaExport errors to caller", async () => {
+      mockBuildQuotaExport.mockResolvedValue({
+        version: 1,
+        exportedAt: 0,
+        fromCache: true,
+        cacheAgeSeconds: 0,
+        providers: {},
+      });
+      mockWriteQuotaExport.mockRejectedValueOnce(new Error("write rejected"));
+
+      writeFileSync(
+        join(worktreeDir, "opencode.json"),
+        JSON.stringify({
+          experimental: {
+            quotaToast: {
+              enabled: true,
+              export: { enabled: true, path: "/tmp/test-tui-export.json" },
+            },
+          },
+        }),
+        "utf8",
+      );
+
+      await expect(
+        writeTuiQuotaExportIfEnabled({
+          api: {
+            state: {
+              provider: [],
+              path: {
+                worktree: worktreeDir,
+                directory: nestedDir,
+              },
+              session: {
+                messages: () => [],
+              },
+            },
+            client: {},
+          } as any,
+        }),
+      ).rejects.toThrow("write rejected");
+    });
+
+    it("does not call buildQuotaExport when export is disabled", async () => {
+      writeFileSync(
+        join(worktreeDir, "opencode.json"),
+        JSON.stringify({
+          experimental: {
+            quotaToast: {
+              enabled: true,
+              export: { enabled: false },
+            },
+          },
+        }),
+        "utf8",
+      );
+
+      await writeTuiQuotaExportIfEnabled({
+        api: {
+          state: {
+            provider: [],
+            path: {
+              worktree: worktreeDir,
+              directory: nestedDir,
+            },
+            session: {
+              messages: () => [],
+            },
+          },
+          client: {},
+        } as any,
+      });
+
+      expect(mockBuildQuotaExport).not.toHaveBeenCalled();
+      expect(mockWriteQuotaExport).not.toHaveBeenCalled();
+    });
   });
 });

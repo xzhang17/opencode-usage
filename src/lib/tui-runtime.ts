@@ -19,6 +19,8 @@ import {
   getMaintainerAnnouncementsSummary,
   type MaintainerAnnouncement,
 } from "./maintainer-announcements.js";
+import { resolveExportPath, buildQuotaExport, writeQuotaExport } from "./quota-export.js";
+import { createQuotaProviderRuntimeContext } from "./quota-runtime-context.js";
 
 const COMPACT_UNAVAILABLE_TEXT = "Quota unavailable";
 
@@ -436,4 +438,45 @@ export async function loadSidebarPanel(params: {
   sessionID: string;
 }): Promise<SidebarPanelState> {
   return (await loadTuiSessionQuotaSurfaces(params)).sidebar;
+}
+
+/**
+ * Writes the quota export file if `config.export.enabled` is true.
+ *
+ * Called from the TUI home bottom status refresh loop. Errors propagate to
+ * the caller; the call-site in `tui.tsx` is responsible for catching and
+ * swallowing them.
+ */
+export async function writeTuiQuotaExportIfEnabled(params: {
+  api: TuiPluginApi;
+}): Promise<void> {
+  const quotaClient = createTuiQuotaClient(params.api);
+  const runtime = await resolveQuotaRuntimeContext({
+    client: quotaClient,
+    roots: getTuiRuntimeRootHints(params.api),
+  });
+
+  if (!runtime.config.export.enabled) {
+    return;
+  }
+
+  const resolvedPath = resolveExportPath(runtime.config.export.path);
+  const ctx = createQuotaProviderRuntimeContext({
+    ...runtime,
+    config: {
+      ...runtime.config,
+      onlyCurrentModel: false,
+      showSessionTokens: false,
+    },
+    session: {},
+  });
+
+  const exportData = await buildQuotaExport({
+    providers: runtime.providers,
+    ctx,
+    ttlMs: runtime.config.minIntervalMs,
+    fromCache: true,
+  });
+
+  await writeQuotaExport(exportData, resolvedPath);
 }

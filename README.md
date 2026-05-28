@@ -184,6 +184,8 @@ For more examples, see [Common configuration](#common-configuration). For every 
 | Command | What it shows |
 | --- | --- |
 | `opencode-quota show` | Terminal quota-only quick glance |
+| `opencode-quota show --json` | Machine-readable JSON output for external tools |
+| `opencode-quota show --cached --threshold <pct>` | Exit `1` if any provider is below `<pct>%` remaining |
 | `/quota` | Detailed quota report |
 | `/quota_status` | Config, provider, auth, pricing, `enabled`/`home` announcement config, `source=bundled_only`, `network=false`, and active/future/expired announcement counts |
 | `/quota_announcements` | List active bundled maintainer notices |
@@ -345,6 +347,21 @@ Useful when you want the compact line on the home screen but not in the chat/ses
 </details>
 
 <details>
+<summary><strong>Write quota export file</strong></summary>
+
+Writes a JSON file after each TUI background refresh for consumption by external tools (tmux, scripts, CI). See [External integration](#external-integration).
+
+```jsonc
+{
+  "export": {
+    "enabled": true,
+  }
+}
+```
+
+</details>
+
+<details>
 <summary><strong>Advanced: legacy config sync</strong></summary>
 
 By default, the installer writes quota settings only to `opencode-quota/quota-toast.json`. If you also want it to write the legacy OpenCode block, run:
@@ -426,7 +443,148 @@ Existing `experimental.quotaToast` settings still work when no sidecar file exis
 | `cursorIncludedApiUsd` | unset | Override Cursor monthly included API budget in USD. |
 | `cursorBillingCycleStartDay` | unset | Local billing-cycle anchor day `1..28`; when unset, Cursor usage resets on the local calendar month. |
 
+### Export settings
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `export.enabled` | `false` | Write a JSON export file after each TUI background refresh. |
+| `export.path` | `""` | Export file path. Empty string uses the XDG default: `$XDG_CACHE_HOME/opencode/quota-export.json`. Supports `~/` expansion. |
+
 </details>
+
+## External integration
+
+Quota data is available to external tools via two surfaces that emit the same JSON schema. Both read from the per-provider disk cache — no extra network requests.
+
+### CLI: `show --json`
+
+```
+opencode-quota show --json [--cached] [--threshold <pct>] [--provider <id>]
+```
+
+| Flag | Behavior |
+|---|---|
+| `--json` | Emit JSON to stdout instead of human-readable text |
+| `--cached` | Read from disk cache only — no network calls, <10 ms |
+| `--threshold <pct>` | Exit `1` if any enabled provider is below `<pct>`% remaining |
+
+`--cached` reads from the per-provider disk cache that the TUI refreshes every 60 s. When the TUI is running, the cache is always warm.
+
+### Export file (TUI background writer)
+
+When enabled, the TUI writes a unified JSON file after each background refresh (same 60 s interval, data already in memory).
+
+```jsonc
+// opencode-quota/quota-toast.json
+{
+  "export": {
+    "enabled": true,
+    "path": "~/.cache/opencode/quota-export.json"  // default
+  }
+}
+```
+
+The file is written atomically. Write errors are logged and never affect TUI rendering.
+
+### JSON schema
+
+Both surfaces emit the same structure:
+
+```jsonc
+{
+  "version": 1,
+  "exportedAt": 1748736000,       // unix seconds
+  "fromCache": true,
+  "cacheAgeSeconds": 42,          // age of the oldest provider entry
+  "providers": {
+    "github-copilot": {
+      "status": "ok",
+      "fetchedAt": 1748735958,
+      "entries": [
+        {
+          "name": "Premium Requests",
+          "window": "monthly",
+          "percentRemaining": 62.3,
+          "resetAt": 1748908800,
+          "unlimited": false
+        }
+      ]
+    },
+    "opencode-go": {
+      "status": "error",
+      "fetchedAt": 1748735958,
+      "error": "Request timeout after 5000ms"
+    },
+    "anthropic": {
+      "status": "unavailable"     // isAvailable() returned false
+    }
+  }
+}
+```
+
+Provider `status` values:
+
+| Value | Meaning |
+|---|---|
+| `ok` | Fetch succeeded; `entries` is populated |
+| `error` | Fetch was attempted but failed; `error` has the message |
+| `unavailable` | Provider credentials not detected; not attempted |
+
+### Integration examples
+
+**CI gate — abort if quota is low:**
+```bash
+npx @slkiser/opencode-quota show --cached --threshold 5
+# exits 1 if any enabled provider is below 5% remaining
+```
+
+**Shell script — branch on remaining quota:**
+```bash
+PCT=$(opencode-quota show --json --cached | jq '.providers["github-copilot"].entries[0].percentRemaining')
+(( ${PCT%.*} < 10 )) && echo "Low quota, skipping." && exit 0
+```
+
+**tmux status-right — reads export file (no subprocess per refresh):**
+```bash
+# ~/.tmux.conf
+set -g status-interval 30
+set -g status-right '#(jq -r "[.providers|to_entries[]|select(.value.status==\"ok\")|(.value.entries[0].percentRemaining|floor|tostring)+\"%\"]|join(\" · \")" ~/.cache/opencode/quota-export.json 2>/dev/null)'
+```
+
+**Starship prompt — reads cache directly (no TUI needed):**
+```toml
+# starship.toml
+[custom.quota]
+command = "opencode-quota show --json --cached 2>/dev/null | jq -r '[.providers|to_entries[]|select(.value.status==\"ok\")|(.value.entries[0].percentRemaining|floor|tostring)+\"%\"]|join(\" \")'"
+when = "true"
+interval = 60
+```
+
+**File-watch push — event-driven, zero polling:**
+```bash
+# macOS
+fswatch -o ~/.cache/opencode/quota-export.json | xargs -I{} my-status-refresh
+
+# Linux
+inotifywait -m -e close_write ~/.cache/opencode/quota-export.json \
+  | while read; do my-status-refresh; done
+```
+
+**LLM proxy router — pick the provider with the most headroom:**
+```python
+import json, subprocess
+
+data = json.loads(subprocess.check_output(
+    ["opencode-quota", "show", "--json", "--cached"], timeout=1
+))
+best = max(
+    (k for k, v in data["providers"].items() if v["status"] == "ok"),
+    key=lambda k: next(
+        (e.get("percentRemaining", 0) for e in data["providers"][k]["entries"]), 0
+    ),
+    default=None,
+)
+```
 
 ## Provider setup notes
 

@@ -390,4 +390,396 @@ describe("runCliShowCommand", () => {
     expect(provider.fetch).toHaveBeenCalledOnce();
     expect(stderr.output).toBe("");
   });
+
+  // ──────────────────────────────────────────────
+  //  --json / --cached / --threshold tests
+  // ──────────────────────────────────────────────
+
+  it("--json outputs valid JSON to stdout with cached provider data", async () => {
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 75 }],
+        errors: [],
+      }),
+    };
+    mockProviders.push(provider);
+    writeFileSync(
+      join(workspaceDir, "opencode.json"),
+      JSON.stringify({
+        experimental: { quotaToast: { enabledProviders: ["synthetic"] } },
+      }),
+      "utf8",
+    );
+
+    // Run non-JSON show first to populate the cache.
+    const textOut = createCaptureStream();
+    const textErr = createCaptureStream();
+    const textCode = await runCliShowCommand({
+      argv: [],
+      cwd: workspaceDir,
+      stdout: textOut.stream as any,
+      stderr: textErr.stream as any,
+    });
+    expect(textCode).toBe(0);
+    expect(provider.fetch).toHaveBeenCalledOnce();
+
+    // Now run --json (reads from cache).
+    const jsonOut = createCaptureStream();
+    const jsonErr = createCaptureStream();
+    const jsonCode = await runCliShowCommand({
+      argv: ["--json"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: jsonErr.stream as any,
+    });
+
+    expect(jsonCode).toBe(0);
+    expect(jsonErr.output).toBe("");
+
+    const parsed = JSON.parse(jsonOut.output);
+    expect(parsed).toHaveProperty("version", 1);
+    expect(parsed).toHaveProperty("exportedAt");
+    expect(parsed).toHaveProperty("fromCache", true);
+    expect(parsed).toHaveProperty("cacheAgeSeconds");
+    expect(parsed.providers).toHaveProperty("synthetic");
+    expect(parsed.providers.synthetic.status).toBe("ok");
+    expect(parsed.providers.synthetic.entries[0].name).toBe("Synthetic");
+    expect(parsed.providers.synthetic.entries[0].percentRemaining).toBe(75);
+    expect(parsed.providers.synthetic.entries[0].unlimited).toBe(false);
+    expect(provider.fetch).toHaveBeenCalledTimes(1); // still only called from text path
+  });
+
+  it("--json output includes all expected QuotaExport schema fields", async () => {
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 60, resetTimeIso: "2026-07-01T00:00:00.000Z" }],
+        errors: [],
+      }),
+    };
+    mockProviders.push(provider);
+    writeFileSync(
+      join(workspaceDir, "opencode.json"),
+      JSON.stringify({
+        experimental: { quotaToast: { enabledProviders: ["synthetic"] } },
+      }),
+      "utf8",
+    );
+
+    // Populate cache via non-JSON show.
+    await runCliShowCommand({ argv: [], cwd: workspaceDir, stdout: { write: () => true } as any, stderr: { write: () => true } as any });
+
+    const jsonOut = createCaptureStream();
+    const jsonCode = await runCliShowCommand({
+      argv: ["--json"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: { write: () => true } as any,
+    });
+
+    expect(jsonCode).toBe(0);
+    const parsed = JSON.parse(jsonOut.output);
+    expect(parsed.version).toBe(1);
+    expect(typeof parsed.exportedAt).toBe("number");
+    expect(typeof parsed.fromCache).toBe("boolean");
+    expect(typeof parsed.cacheAgeSeconds).toBe("number");
+    expect(typeof parsed.providers).toBe("object");
+    expect(parsed.providers.synthetic.status).toBe("ok");
+    expect(parsed.providers.synthetic.entries[0].percentRemaining).toBe(60);
+    expect(typeof parsed.providers.synthetic.entries[0].resetAt).toBe("number");
+    expect(parsed.providers.synthetic.entries[0].unlimited).toBe(false);
+  });
+
+  it("--cached flag implies --json and returns unavailable when no cache exists", async () => {
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 100 }],
+        errors: [],
+      }),
+    };
+    mockProviders.push(provider);
+    writeFileSync(
+      join(workspaceDir, "opencode.json"),
+      JSON.stringify({
+        experimental: { quotaToast: { enabledProviders: ["synthetic"] } },
+      }),
+      "utf8",
+    );
+
+    // Run --cached WITHOUT populating cache first → all unavailable.
+    const jsonOut = createCaptureStream();
+    const jsonErr = createCaptureStream();
+    const jsonCode = await runCliShowCommand({
+      argv: ["--cached"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: jsonErr.stream as any,
+    });
+
+    expect(jsonCode).toBe(0);
+    expect(jsonErr.output).toBe("");
+    const parsed = JSON.parse(jsonOut.output);
+    expect(parsed.providers.synthetic.status).toBe("unavailable");
+    expect(provider.fetch).not.toHaveBeenCalled();
+  });
+
+  it("--threshold 50 exits 0 when all providers are above 50%", async () => {
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 80 }],
+        errors: [],
+      }),
+    };
+    mockProviders.push(provider);
+    writeFileSync(
+      join(workspaceDir, "opencode.json"),
+      JSON.stringify({
+        experimental: { quotaToast: { enabledProviders: ["synthetic"] } },
+      }),
+      "utf8",
+    );
+
+    // Populate cache.
+    await runCliShowCommand({ argv: [], cwd: workspaceDir, stdout: { write: () => true } as any, stderr: { write: () => true } as any });
+
+    const jsonOut = createCaptureStream();
+    const jsonCode = await runCliShowCommand({
+      argv: ["--json", "--threshold", "50"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: { write: () => true } as any,
+    });
+
+    expect(jsonCode).toBe(0);
+  });
+
+  it("--threshold 50 exits 1 when any provider is below 50%", async () => {
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 30 }],
+        errors: [],
+      }),
+    };
+    mockProviders.push(provider);
+    writeFileSync(
+      join(workspaceDir, "opencode.json"),
+      JSON.stringify({
+        experimental: { quotaToast: { enabledProviders: ["synthetic"] } },
+      }),
+      "utf8",
+    );
+
+    // Populate cache.
+    await runCliShowCommand({ argv: [], cwd: workspaceDir, stdout: { write: () => true } as any, stderr: { write: () => true } as any });
+
+    const jsonOut = createCaptureStream();
+    const jsonCode = await runCliShowCommand({
+      argv: ["--json", "--threshold=50"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: { write: () => true } as any,
+    });
+
+    expect(jsonCode).toBe(1);
+  });
+
+  it("--threshold exits 2 when no provider is ok", async () => {
+    // Provider that is unavailable (no cache populated).
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 100 }],
+        errors: [],
+      }),
+    };
+    mockProviders.push(provider);
+    writeFileSync(
+      join(workspaceDir, "opencode.json"),
+      JSON.stringify({
+        experimental: { quotaToast: { enabledProviders: ["synthetic"] } },
+      }),
+      "utf8",
+    );
+
+    // Run --threshold WITHOUT populating cache → all unavailable.
+    const jsonOut = createCaptureStream();
+    const jsonCode = await runCliShowCommand({
+      argv: ["--json", "--threshold", "10"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: { write: () => true } as any,
+    });
+
+    expect(jsonCode).toBe(2);
+  });
+
+  it("--json --provider copilot only includes the copilot key", async () => {
+    const copilotProvider = {
+      id: "copilot",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Copilot", percentRemaining: 90 }],
+        errors: [],
+      }),
+    };
+    const syntheticProvider = {
+      id: "synthetic",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 50 }],
+        errors: [],
+      }),
+    };
+    mockProviders.push(copilotProvider, syntheticProvider);
+    writeFileSync(
+      join(workspaceDir, "opencode.json"),
+      JSON.stringify({
+        experimental: { quotaToast: { enabledProviders: ["copilot", "synthetic"] } },
+      }),
+      "utf8",
+    );
+
+    // Populate cache for both providers.
+    await runCliShowCommand({ argv: [], cwd: workspaceDir, stdout: { write: () => true } as any, stderr: { write: () => true } as any });
+
+    const jsonOut = createCaptureStream();
+    const jsonCode = await runCliShowCommand({
+      argv: ["--json", "--provider", "copilot"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: { write: () => true } as any,
+    });
+
+    expect(jsonCode).toBe(0);
+    const parsed = JSON.parse(jsonOut.output);
+    expect(Object.keys(parsed.providers)).toEqual(["copilot"]);
+    expect(parsed.providers.copilot.status).toBe("ok");
+  });
+
+  it("reports unknown flag with --json as error on stderr with exit code 1", async () => {
+    const jsonOut = createCaptureStream();
+    const jsonErr = createCaptureStream();
+
+    const jsonCode = await runCliShowCommand({
+      argv: ["--json", "--bogus-flag"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: jsonErr.stream as any,
+    });
+
+    expect(jsonCode).toBe(1);
+    expect(jsonErr.output).toContain("Unknown option: --bogus-flag");
+    expect(jsonErr.output).toContain("opencode-quota show");
+  });
+
+  it("--threshold validates positive finite number", async () => {
+    const jsonOut = createCaptureStream();
+    const jsonErr = createCaptureStream();
+
+    const code = await runCliShowCommand({
+      argv: ["--json", "--threshold", "abc"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: jsonErr.stream as any,
+    });
+
+    expect(code).toBe(1);
+    expect(jsonErr.output).toContain("--threshold must be a positive finite number");
+  });
+
+  it("--threshold rejects zero", async () => {
+    const jsonOut = createCaptureStream();
+    const jsonErr = createCaptureStream();
+
+    const code = await runCliShowCommand({
+      argv: ["--json", "--threshold", "0"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: jsonErr.stream as any,
+    });
+
+    expect(code).toBe(1);
+    expect(jsonErr.output).toContain("--threshold must be a positive finite number");
+  });
+
+  it("--threshold missing value produces error", async () => {
+    const jsonOut = createCaptureStream();
+    const jsonErr = createCaptureStream();
+
+    const code = await runCliShowCommand({
+      argv: ["--json", "--threshold"],
+      cwd: workspaceDir,
+      stdout: jsonOut.stream as any,
+      stderr: jsonErr.stream as any,
+    });
+
+    expect(code).toBe(1);
+    expect(jsonErr.output).toContain("Missing value for --threshold");
+  });
+
+  it("--threshold without --json or --cached produces exit code 1 with error", async () => {
+    const stdout = createCaptureStream();
+    const stderr = createCaptureStream();
+
+    const code = await runCliShowCommand({
+      argv: ["--threshold", "5"],
+      cwd: workspaceDir,
+      stdout: stdout.stream as any,
+      stderr: stderr.stream as any,
+    });
+
+    expect(code).toBe(1);
+    expect(stdout.output).toBe("");
+    expect(stderr.output).toContain("--threshold requires --json or --cached");
+  });
+
+  it("--threshold > 100 is accepted (warned but accepted)", async () => {
+    const provider = {
+      id: "synthetic",
+      isAvailable: vi.fn().mockResolvedValue(true),
+      fetch: vi.fn().mockResolvedValue({
+        attempted: true,
+        entries: [{ name: "Synthetic", percentRemaining: 99 }],
+        errors: [],
+      }),
+    };
+    mockProviders.push(provider);
+    writeFileSync(
+      join(workspaceDir, "opencode.json"),
+      JSON.stringify({
+        experimental: { quotaToast: { enabledProviders: ["synthetic"] } },
+      }),
+      "utf8",
+    );
+
+    await runCliShowCommand({ argv: [], cwd: workspaceDir, stdout: { write: () => true } as any, stderr: { write: () => true } as any });
+
+    const jsonCode = await runCliShowCommand({
+      argv: ["--json", "--threshold=101"],
+      cwd: workspaceDir,
+      stdout: { write: () => true } as any,
+      stderr: { write: () => true } as any,
+    });
+
+    // Threshold > 100 is accepted but warned about. Since percentRemaining=99 < 101, exit 1.
+    expect(jsonCode).toBe(1);
+  });
 });

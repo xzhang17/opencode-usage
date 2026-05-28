@@ -16,6 +16,10 @@ const USAGE = [
   "  init    Run the interactive quota installer",
   "          --sync-legacy-config also writes experimental.quotaToast",
   "  show    Print a quick quota glance",
+  "          --json               Machine-readable JSON output (reads from cache)",
+  "          --cached             Alias for --json (kept for ergonomics; implies --json)",
+  "          --threshold <pct>    Exit 1 if any provider is below <pct>% remaining",
+  "          --provider <id>      Filter to one provider",
 ].join("\n");
 
 function printUsage(): void {
