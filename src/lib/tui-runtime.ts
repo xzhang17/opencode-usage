@@ -161,6 +161,7 @@ function buildCompactStatusFromData(params: {
   result: CollectQuotaRenderDataResult;
   enabled: boolean;
   maxWidth?: number;
+  formatStyle?: ReturnType<typeof resolveQuotaFormatStyle>;
 }): CompactStatusState {
   if (!params.enabled) return { status: "disabled" };
 
@@ -168,9 +169,18 @@ function buildCompactStatusFromData(params: {
     return { status: "loading" };
   }
 
-  const text = params.result.data
+  const effectiveFormatStyle =
+    params.formatStyle ?? resolveQuotaFormatStyle(params.runtime.config.formatStyle);
+  const data =
+    effectiveFormatStyle === "allWindows" && params.result.allWindowsData
+      ? params.result.allWindowsData
+      : effectiveFormatStyle === "singleWindow" && params.result.singleWindowData !== undefined
+        ? params.result.singleWindowData
+        : params.result.data;
+
+  const text = data
     ? buildCompactQuotaStatusLine({
-        data: params.result.data,
+        data,
         percentDisplayMode: params.runtime.config.percentDisplayMode,
         maxWidth: params.maxWidth ?? params.runtime.config.tuiCompactStatus.maxWidth,
       })
@@ -194,15 +204,22 @@ function buildSidebarPanelFromData(params: {
     };
   }
 
-  const lines = params.result.data
+  const primaryData =
+    params.formatStyle === "allWindows" && params.result.allWindowsData
+      ? params.result.allWindowsData
+      : params.formatStyle === "singleWindow" && params.result.singleWindowData !== undefined
+        ? params.result.singleWindowData
+        : params.result.data;
+
+  const lines = primaryData
     ? buildSidebarQuotaPanelLines({
-        data: params.result.data,
+        data: primaryData,
         config: { ...params.runtime.config, formatStyle: params.formatStyle },
       })
     : [];
 
   let linesExpanded: string[] | undefined;
-  if (params.result.allWindowsData) {
+  if (params.result.allWindowsData && params.formatStyle !== "allWindows") {
     linesExpanded = buildSidebarQuotaPanelLines({
       data: params.result.allWindowsData,
       config: { ...params.runtime.config, formatStyle: "allWindows" },
@@ -225,8 +242,16 @@ async function collectTuiQuotaRenderData(params: {
 }): Promise<{
   result: CollectQuotaRenderDataResult;
   formatStyle: ReturnType<typeof resolveQuotaFormatStyle>;
+  sidebarFormatStyle: ReturnType<typeof resolveQuotaFormatStyle>;
+  compactFormatStyle: ReturnType<typeof resolveQuotaFormatStyle>;
 }> {
   const formatStyle = resolveQuotaFormatStyle(params.runtime.config.formatStyle);
+  const sidebarFormatStyle = params.runtime.config.tuiSidebarPanel.formatStyle
+    ? resolveQuotaFormatStyle(params.runtime.config.tuiSidebarPanel.formatStyle)
+    : formatStyle;
+  const compactFormatStyle = params.runtime.config.tuiCompactStatus.formatStyle
+    ? resolveQuotaFormatStyle(params.runtime.config.tuiCompactStatus.formatStyle)
+    : formatStyle;
   const result = await collectQuotaRenderData({
     client: params.runtime.client,
     config: params.runtime.config,
@@ -238,7 +263,7 @@ async function collectTuiQuotaRenderData(params: {
     includeAllWindowsData: true,
   });
 
-  return { result, formatStyle };
+  return { result, formatStyle, sidebarFormatStyle, compactFormatStyle };
 }
 
 export async function resolveTuiSurfaceRegistration(
@@ -305,19 +330,20 @@ export async function loadTuiSessionQuotaSurfaces(params: {
     return buildDisabledSessionQuotaSurfaces();
   }
 
-  const { result, formatStyle } = await collectTuiQuotaRenderData({
+  const { result, sidebarFormatStyle, compactFormatStyle } = await collectTuiQuotaRenderData({
     runtime,
     request: createQuotaRuntimeRequestContext(runtime),
   });
 
   return {
     sidebar: sidebarEnabled
-      ? buildSidebarPanelFromData({ runtime, result, formatStyle })
+      ? buildSidebarPanelFromData({ runtime, result, formatStyle: sidebarFormatStyle })
       : { status: "disabled", lines: [] },
     compact: buildCompactStatusFromData({
       runtime,
       result,
       enabled: compactEnabled,
+      formatStyle: compactFormatStyle,
     }),
   };
 }

@@ -135,6 +135,27 @@ describe("loadConfig", () => {
     const invalidNested = await loadSdkConfig({ tuiSidebarPanel: true });
     expect(invalidNested.config.tuiSidebarPanel).toEqual(DEFAULT_CONFIG.tuiSidebarPanel);
     expect(invalidNested.meta.settingSources).toEqual({});
+
+    const withFormatStyle = await loadSdkConfig({
+      tuiSidebarPanel: {
+        formatStyle: "allWindows",
+      },
+    });
+    expect(withFormatStyle.config.tuiSidebarPanel).toEqual({
+      ...DEFAULT_CONFIG.tuiSidebarPanel,
+      formatStyle: "allWindows",
+    });
+    expect(withFormatStyle.meta.settingSources).toEqual({
+      "tuiSidebarPanel.formatStyle": "client.config.get",
+    });
+
+    const withInvalidFormatStyle = await loadSdkConfig({
+      tuiSidebarPanel: {
+        formatStyle: "invalid-style",
+      },
+    });
+    expect(withInvalidFormatStyle.config.tuiSidebarPanel).toEqual(DEFAULT_CONFIG.tuiSidebarPanel);
+    expect(withInvalidFormatStyle.meta.settingSources).toEqual({});
   });
 
   it("defaults tuiCompactStatus and accepts validated nested overrides", async () => {
@@ -187,6 +208,32 @@ describe("loadConfig", () => {
     const invalidNested = await loadSdkConfig({ tuiCompactStatus: "enabled" });
     expect(invalidNested.config.tuiCompactStatus).toEqual(DEFAULT_CONFIG.tuiCompactStatus);
     expect(invalidNested.meta.settingSources).toEqual({});
+
+    const withFormatStyle = await loadSdkConfig({
+      tuiCompactStatus: {
+        enabled: true,
+        formatStyle: "singleWindow",
+      },
+    });
+    expect(withFormatStyle.config.tuiCompactStatus).toEqual({
+      ...DEFAULT_CONFIG.tuiCompactStatus,
+      enabled: true,
+      formatStyle: "singleWindow",
+    });
+    expect(withFormatStyle.meta.settingSources).toEqual({
+      "tuiCompactStatus.enabled": "client.config.get",
+      "tuiCompactStatus.formatStyle": "client.config.get",
+    });
+
+    const withInvalidCompactFormatStyle = await loadSdkConfig({
+      tuiCompactStatus: {
+        formatStyle: 42,
+      },
+    });
+    expect(withInvalidCompactFormatStyle.config.tuiCompactStatus).toEqual(
+      DEFAULT_CONFIG.tuiCompactStatus,
+    );
+    expect(withInvalidCompactFormatStyle.meta.settingSources).toEqual({});
   });
 
   it("deep-clones default config when no config source exists", async () => {

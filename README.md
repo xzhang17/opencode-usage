@@ -401,11 +401,13 @@ Existing `experimental.quotaToast` settings still work when no sidecar file exis
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `tuiSidebarPanel.enabled` | `true` | Show the Sidebar `Quota` panel when the TUI plugin is installed. Click the panel header to toggle between compact summary and detailed all-windows views; OpenCode remembers the last state. |
+| `tuiSidebarPanel.formatStyle` | (root `formatStyle`) | Override `formatStyle` for the Sidebar panel only. Useful when you want `allWindows` detail in the sidebar but a different style elsewhere. |
 | `tuiCompactStatus.enabled` | `false` | Opt in to Compact status line UI surfaces. |
 | `tuiCompactStatus.homeBottom` | `true` | Show the Compact status line at the home bottom location. |
 | `tuiCompactStatus.sessionPrompt` | `true` | Show the Compact status line by wrapping the TUI session prompt. Disable this if you only want the home-bottom line. |
 | `tuiCompactStatus.suppressWhenNativeProviderQuota` | `true` | Hide the Compact status line when OpenCode exposes native provider-quota support. |
 | `tuiCompactStatus.maxWidth` | `96` | Maximum Compact status line text width. |
+| `tuiCompactStatus.formatStyle` | (root `formatStyle`) | Override `formatStyle` for the Compact status line only. Useful when you want `singleWindow` on the compact line while the sidebar shows `allWindows`. |
 
 ### Maintainer announcement settings
 
