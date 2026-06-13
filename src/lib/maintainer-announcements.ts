@@ -41,7 +41,26 @@ export interface MaintainerAnnouncementsSummary {
   evaluations: MaintainerAnnouncementEvaluation[];
 }
 
-export const BUNDLED_MAINTAINER_ANNOUNCEMENTS: readonly MaintainerAnnouncement[] = [];
+export const BUNDLED_MAINTAINER_ANNOUNCEMENTS: readonly MaintainerAnnouncement[] = [
+  {
+    id: "gemini-cli-antigravity-transition-feedback",
+    message:
+      "Gemini CLI transition: individual usage stops June 18, 2026 as users move to Antigravity CLI. Tell us if you want Antigravity CLI or companion plugin support next.",
+    url: "https://github.com/slkiser/opencode-quota/issues/125",
+    startsAt: "2026-06-13T00:00:00.000Z",
+    endsAt: "2026-06-19T00:00:00.000Z",
+    providerIds: ["google-gemini-cli"],
+  },
+  {
+    id: "copilot-github-ai-credits-feedback",
+    message:
+      "Copilot billing update: usage-based billing with GitHub AI Credits is live as of June 1, 2026. Tell us what opencode-quota should track next.",
+    url: "https://github.com/slkiser/opencode-quota/issues/126",
+    startsAt: "2026-06-01T00:00:00.000Z",
+    endsAt: "2026-08-01T00:00:00.000Z",
+    providerIds: ["copilot"],
+  },
+];
 
 function parseTimestamp(value: string | undefined): number | undefined {
   if (value === undefined) {
