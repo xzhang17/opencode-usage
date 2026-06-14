@@ -220,7 +220,7 @@ Most providers work automatically. If a provider has a “Needs setup” link, o
 | Z.ai Coding Plan | Automatic | Remote API |
 | Zhipu Coding Plan | Automatic | Remote API |
 | NanoGPT | Usually automatic | Remote API |
-| DeepSeek | Usually automatic | Remote API balance |
+| DeepSeek | Usually automatic | Remote API |
 | Ollama Cloud | [Needs setup](#ollama-cloud) | Dashboard scraping |
 | OpenCode Go | [Needs setup](#opencode-go) | Dashboard scraping |
 
