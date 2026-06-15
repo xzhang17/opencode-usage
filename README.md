@@ -201,28 +201,28 @@ For more examples, see [Common configuration](#common-configuration). For every 
 
 Most providers work automatically. If a provider has a “Needs setup” link, open that setup note only if you use that provider.
 
-| Provider | Setup | Quota source |
-| --- | --- | --- |
-| Anthropic (Claude) | [Needs setup](#anthropic-claude) | Local CLI or OAuth usage |
-| GitHub Copilot | Usually automatic | Remote API |
-| OpenAI | Automatic | Remote API |
-| Cursor | [Needs setup](#cursor) | Local estimation |
-| Qwen Code | [Needs setup](#qwen-code) | Local estimation |
-| Alibaba Coding Plan | Automatic | Local estimation |
-| MiniMax Coding Plan | Automatic | Remote API |
-| MiniMax Coding Plan (CN) | Automatic | Remote API |
-| Kimi Code | Automatic | Remote API |
-| Chutes AI | Usually automatic | Remote API |
-| Crof.ai | Manual env/config/auth | Remote API |
-| Synthetic | Automatic | Remote API |
-| Google Antigravity | [Needs setup](#google-antigravity) | Remote API |
-| Gemini CLI | [Needs setup](#gemini-cli) | Remote API |
-| Z.ai Coding Plan | Automatic | Remote API |
-| Zhipu Coding Plan | Automatic | Remote API |
-| NanoGPT | Usually automatic | Remote API |
-| DeepSeek | Usually automatic | Remote API |
-| Ollama Cloud | [Needs setup](#ollama-cloud) | Dashboard scraping |
-| OpenCode Go | [Needs setup](#opencode-go) | Dashboard scraping |
+| Provider | Auth/setup | Source | Reports |
+| --- | --- | --- | --- |
+| Anthropic (Claude) | [Needs setup](#anthropic-claude) | Local CLI/OAuth | Usage/quota |
+| GitHub Copilot | OpenCode OAuth or PAT | Remote API | Quota/usage |
+| OpenAI | Automatic | Remote API | Usage/quota |
+| Cursor | [Needs setup](#cursor) | Local estimate | Estimated quota |
+| Qwen Code | [Needs setup](#qwen-code) | Local estimate | Estimated quota |
+| Alibaba Coding Plan | OpenCode config | Local estimate | Estimated quota |
+| MiniMax Coding Plan | OpenCode config | Remote API | Usage/quota |
+| MiniMax Coding Plan (CN) | OpenCode config | Remote API | Usage/quota |
+| Kimi Code | OpenCode config | Remote API | Usage/quota |
+| Chutes AI | API key/config | Remote API | Usage/quota |
+| Crof.ai | Manual env/config/auth | Remote API | Usage/quota |
+| Synthetic | Automatic | Remote API | Quota |
+| Google Antigravity | [Needs setup](#google-antigravity) | Remote API | Usage/quota |
+| Gemini CLI | [Needs setup](#gemini-cli) | Remote API | Usage/quota |
+| Z.ai Coding Plan | OpenCode config | Remote API | Usage/quota |
+| Zhipu Coding Plan | OpenCode config | Remote API | Usage/quota |
+| NanoGPT | API key/config | Remote APIs | Usage + balance |
+| DeepSeek | API key/config | Remote API | Balance/status |
+| Ollama Cloud | [Needs setup](#ollama-cloud) | Dashboard scraping | Dashboard usage |
+| OpenCode Go | [Needs setup](#opencode-go) | Dashboard scraping | Dashboard usage |
 
 ## Common configuration
 
