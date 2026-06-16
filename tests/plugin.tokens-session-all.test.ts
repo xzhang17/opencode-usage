@@ -154,6 +154,10 @@ describe("/tokens_session_all command", () => {
         title: "Tokens used (Current Session Tree) (/tokens_session_all)",
         focusSessionID: "ses_parent",
         reportKind: "session_tree",
+        tableOptions: {
+          compactHeaders: true,
+          modelNameMaxWidth: 34,
+        },
         sessionTree: {
           rootSessionID: "ses_parent",
           nodes: [
@@ -195,6 +199,10 @@ describe("/tokens_session_all command", () => {
         focusSessionID: "ses_parent",
         sessionOnly: true,
         reportKind: "session",
+        tableOptions: {
+          compactHeaders: true,
+          modelNameMaxWidth: 34,
+        },
       }),
     );
   });

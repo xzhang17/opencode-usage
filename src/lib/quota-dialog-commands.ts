@@ -195,6 +195,12 @@ const TOKEN_REPORT_COMMANDS: readonly TokenReportCommandSpec[] = [
   },
 ] as const;
 
+// OpenCode's xlarge TUI dialog is 116 columns, but the plugin API exposes
+// only the size label, not the live measured width. With command-output padding
+// of 2 columns on each side, 34 keeps token model tables comfortably within the
+// xlarge content budget even when the Reasoning column is present.
+const TUI_TOKEN_REPORT_MODEL_MAX_WIDTH = 34;
+
 const TOKEN_REPORT_COMMANDS_BY_ID: ReadonlyMap<TokenReportCommandId, TokenReportCommandSpec> =
   (() => {
     const map = new Map<TokenReportCommandId, TokenReportCommandSpec>();
@@ -424,6 +430,10 @@ async function buildQuotaReport(params: {
     reportKind: params.reportKind,
     sessionTree: params.sessionTree,
     generatedAtMs: params.generatedAtMs,
+    tableOptions: {
+      compactHeaders: true,
+      modelNameMaxWidth: TUI_TOKEN_REPORT_MODEL_MAX_WIDTH,
+    },
   });
 }
 

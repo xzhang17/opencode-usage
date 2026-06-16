@@ -332,7 +332,14 @@ describe("tui plugin smoke", () => {
       dialog.setSize.mock.invocationCallOrder[1],
     );
     const rendered = dialog.replace.mock.calls[1][0]() as any;
-    expect(rendered.props).toMatchObject({ gap: 1, width: "100%", flexGrow: 1 });
+    expect(rendered.props).toMatchObject({
+      gap: 1,
+      width: "100%",
+      flexGrow: 1,
+      paddingLeft: 2,
+      paddingRight: 2,
+      paddingBottom: 1,
+    });
     const scrollbox = rendered.props.children[1];
     expect(scrollbox.props).toMatchObject({
       width: "100%",

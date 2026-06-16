@@ -500,7 +500,7 @@ function CommandOutputDialog(props: { api: TuiPluginApi; title: string; output: 
   const lines = () => props.output.split("\n");
   const bodyHeight = () => Math.min(28, Math.max(6, lines().length));
   return (
-    <box gap={1} width="100%" flexGrow={1}>
+    <box gap={1} width="100%" flexGrow={1} paddingLeft={2} paddingRight={2} paddingBottom={1}>
       <text fg={props.api.theme.current.text}>
         <b>{props.title}</b>
       </text>
