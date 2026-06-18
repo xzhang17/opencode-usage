@@ -188,15 +188,20 @@ export function extractProviderIdsFromParsedConfig(parsed: unknown): string[] {
 export function isQuotaPluginSpec(spec: string, kind: ConfigFileKind): boolean {
   const normalized = spec.replace(/\\/g, "/").toLowerCase();
 
-  if (normalized.includes("@slkiser/opencode-quota")) {
+  if (normalized.includes("@slkiser/opencode-quota") || normalized.includes("opencode-usage")) {
     return true;
   }
 
-  if (normalized.includes("/opencode-quota") && !normalized.includes("/opencode-quota/dist/")) {
+  if (
+    (normalized.includes("/opencode-quota") && !normalized.includes("/opencode-quota/dist/")) ||
+    (normalized.includes("/opencode-usage") && !normalized.includes("/opencode-usage/dist/"))
+  ) {
     return true;
   }
 
   return kind === "tui"
-    ? normalized.includes("opencode-quota/dist/tui.tsx")
-    : normalized.includes("opencode-quota/dist/index.js");
+    ? normalized.includes("opencode-quota/dist/tui.tsx") ||
+        normalized.includes("opencode-usage/dist/tui.tsx")
+    : normalized.includes("opencode-quota/dist/index.js") ||
+        normalized.includes("opencode-usage/dist/index.js");
 }

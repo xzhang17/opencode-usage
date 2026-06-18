@@ -37,7 +37,7 @@ import {
   type QuotaDialogCommandId,
 } from "./lib/quota-dialog-commands.js";
 
-const id = "@slkiser/opencode-quota";
+const id = "opencode-usage";
 // Place Quota near the top so variable-height built-in sections
 // (MCP/LSP/Todo/Files) do not push it below the visible fold.
 const SIDEBAR_ORDER = 150;
@@ -241,7 +241,7 @@ function createHomeBottomResource(api: TuiPluginApi): HomeBottomResource {
         // Fire-and-forget: write export file if enabled. A failed write must
         // never affect TUI rendering, so log a warning and continue.
         void writeTuiQuotaExportIfEnabled({ api }).catch((err) => {
-          console.warn(`[opencode-quota] quota export write failed: ${String(err)}`);
+          console.warn(`[opencode-usage] quota export write failed: ${String(err)}`);
         });
       })
       .catch(() => {
@@ -503,13 +503,13 @@ function CommandLoadingDialog(props: { api: TuiPluginApi; title: string }) {
 
 function CommandOutputDialog(props: { api: TuiPluginApi; title: string; output: string }) {
   const lines = () => props.output.split("\n");
-  const bodyHeight = () => Math.min(28, Math.max(6, lines().length));
+  const bodyHeight = () => Math.min(18, Math.max(6, lines().length));
   return (
     <box gap={1} width="100%" flexGrow={1} paddingLeft={2} paddingRight={2} paddingBottom={1}>
       <text fg={props.api.theme.current.text}>
         <b>{props.title}</b>
       </text>
-      <scrollbox width="100%" flexGrow={1} minHeight={bodyHeight()} maxHeight={28}>
+      <scrollbox width="100%" flexGrow={1} minHeight={bodyHeight()} maxHeight={18}>
         <box gap={0} width="100%" minWidth={0}>
           {lines().map((line) => (
             <text fg={props.api.theme.current.text} wrapMode="word" width="100%">
@@ -530,7 +530,7 @@ function CommandErrorDialog(props: { api: TuiPluginApi; title: string; error: un
       <text fg={props.api.theme.current.text}>
         <b>{props.title}</b>
       </text>
-      <text fg={props.api.theme.current.text}>OpenCode Quota command failed.</text>
+      <text fg={props.api.theme.current.text}>OpenCode Usage command failed.</text>
       <text fg={props.api.theme.current.textMuted} wrapMode="none">
         {message || "Unknown error"}
       </text>
@@ -548,7 +548,7 @@ function TokensBetweenPromptDialog(props: {
   if (DialogPrompt) {
     return (
       <DialogPrompt
-        title="OpenCode Quota Token Range"
+        title="OpenCode Usage Token Range"
         placeholder="YYYY-MM-DD YYYY-MM-DD"
         description={() => (
           <text fg={props.api.theme.current.textMuted} wrapMode="none">
@@ -564,7 +564,7 @@ function TokensBetweenPromptDialog(props: {
   return (
     <CommandOutputDialog
       api={props.api}
-      title="OpenCode Quota Token Range"
+      title="OpenCode Usage Token Range"
       output={
         "Missing arguments for /tokens_between\n\nExpected: /tokens_between YYYY-MM-DD YYYY-MM-DD\nExample: /tokens_between 2026-01-01 2026-01-15"
       }
@@ -660,7 +660,7 @@ async function runQuotaDialogCommandAsync(
     replaceDialog(api, "large", () => <CommandErrorDialog api={api} title={spec.title} error={error} />);
     (api as any).ui?.toast?.({
       variant: "error",
-      message: "OpenCode Quota command failed",
+      message: "OpenCode Usage command failed",
     });
   }
 }
@@ -680,12 +680,12 @@ function registerQuotaDialogCommands(api: TuiPluginApi): void {
 
   const commandState: QuotaDialogCommandState = {};
   const dispose = keymap.registerLayer({
-    commands: QUOTA_DIALOG_COMMANDS.map((spec) => ({
+    commands: QUOTA_DIALOG_COMMANDS.filter((spec) => spec.id === "quota").map((spec) => ({
       namespace: "palette",
-      name: `opencode-quota.${spec.id}`,
+      name: `opencode-usage.${spec.id}`,
       title: spec.title,
       desc: spec.description,
-      category: "OpenCode Quota",
+      category: "OpenCode Usage",
       slashName: spec.slashName,
       run(input?: unknown) {
         runQuotaDialogCommand(api, spec.id, input, commandState);

@@ -28,10 +28,10 @@ import {
 import { getQuotaToastConfigPath, QUOTA_TOAST_CONFIG_RELATIVE_PATH } from "./config.js";
 import type { QuotaToastConfig } from "./types.js";
 
-const QUOTA_PLUGIN_SPEC = "@slkiser/opencode-quota";
+const QUOTA_PLUGIN_SPEC = "opencode-usage";
 const OPENCODE_SCHEMA_URL = "https://opencode.ai/config.json";
 const TUI_SCHEMA_URL = "https://opencode.ai/tui.json";
-const GITHUB_REPO_URL = "https://github.com/slkiser/opencode-quota";
+const GITHUB_REPO_URL = "https://github.com/xzhang17/opencode-usage";
 const GITHUB_STAR_NOTE = `if this helps, stars are appreciated: ${GITHUB_REPO_URL}`;
 
 export type InitInstallerScope = "project" | "global";
@@ -1118,7 +1118,7 @@ export async function runInitInstaller(params?: {
 }): Promise<number> {
   const prompts = params?.prompts ?? ((await import("@clack/prompts")) as unknown as PromptAdapter);
 
-  prompts.intro("Configure @slkiser/opencode-quota");
+  prompts.intro("Configure opencode-usage");
 
   try {
     const selections = await promptForSelections(prompts);

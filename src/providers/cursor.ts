@@ -67,7 +67,7 @@ export const cursorProvider: QuotaProvider = {
 
     const errors =
       usage.unknownModels.length > 0
-        ? [{ label: "Cursor", message: "Unknown Cursor model ids present in local history (see /quota_status)" }]
+        ? [{ label: "Cursor", message: "Unknown Cursor model ids present in local history (see /usage_status)" }]
         : [];
     const hasPartialApiCoverage = usage.unknownModels.length > 0;
     const entries: QuotaToastEntry[] = [];

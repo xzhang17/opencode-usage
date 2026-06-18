@@ -46,7 +46,7 @@ export function getSidebarPanelLinesExpanded(panel: SidebarPanelState): string[]
 }
 
 export function shouldRenderCompactStatus(panel: CompactStatusState): boolean {
-  return panel.status !== "disabled";
+  return panel.status === "ready";
 }
 
 export function getCompactStatusText(panel: CompactStatusState): string {

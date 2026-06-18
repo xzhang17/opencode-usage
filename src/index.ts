@@ -1,7 +1,7 @@
 /**
- * OpenCode Quota Plugin
+ * OpenCode Usage Plugin
  *
- * Shows quota status in OpenCode without LLM invocation.
+ * Shows usage/quota status in OpenCode without LLM invocation.
  *
  * @packageDocumentation
  */
@@ -18,7 +18,7 @@ type V1PluginModule = {
 // loader, which iterates Object.values(mod) and can conflict with other
 // plugins that also use the legacy path.
 const pluginModule = {
-  id: "@slkiser/opencode-quota",
+  id: "opencode-usage",
   server: QuotaToastPlugin,
 } satisfies V1PluginModule;
 

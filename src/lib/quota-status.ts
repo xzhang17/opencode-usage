@@ -1746,7 +1746,7 @@ export async function buildQuotaStatusReport(params: {
 
   return renderPlainTextReport({
     heading: {
-      title: `Quota Status (opencode-quota v${v}) (/quota_status)`,
+      title: `Usage Status (opencode-usage v${v}) (/usage_status)`,
       generatedAtMs: params.generatedAtMs,
     },
     sections,

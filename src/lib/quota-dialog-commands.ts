@@ -211,43 +211,43 @@ const TOKEN_REPORT_COMMANDS_BY_ID: ReadonlyMap<TokenReportCommandId, TokenReport
 export const QUOTA_DIALOG_COMMANDS: readonly QuotaDialogCommandSpec[] = [
   {
     id: "quota",
-    slashName: "quota",
-    title: "OpenCode Quota",
-    description: "Show deterministic quota output in a local TUI dialog.",
-    dialogSize: "xlarge",
+    slashName: "usage",
+    title: "OpenCode Usage",
+    description: "Show the usage of subscriptions in a local TUI dialog.",
+    dialogSize: "large",
     requiresSession: true,
   },
   {
     id: "quota_status",
-    slashName: "quota_status",
-    title: "OpenCode Quota Status",
-    description: "Diagnostics for quota, TUI, pricing, and local storage.",
-    dialogSize: "xlarge",
+    slashName: "usage_status",
+    title: "OpenCode Usage Status",
+    description: "Diagnostics for usage/quota, TUI, pricing, and local storage.",
+    dialogSize: "large",
     requiresSession: true,
     acceptsArguments: true,
   },
   {
     id: "quota_announcements",
-    slashName: "quota_announcements",
-    title: "OpenCode Quota Announcements",
+    slashName: "usage_announcements",
+    title: "OpenCode Usage Announcements",
     description: "List active bundled maintainer announcements.",
-    dialogSize: "xlarge",
+    dialogSize: "large",
     acceptsArguments: true,
   },
   {
     id: "pricing_refresh",
     slashName: "pricing_refresh",
-    title: "OpenCode Quota Pricing Refresh",
+    title: "OpenCode Usage Pricing Refresh",
     description: "Refresh the local runtime pricing snapshot from models.dev.",
-    dialogSize: "xlarge",
+    dialogSize: "large",
     acceptsArguments: true,
   },
   ...TOKEN_REPORT_COMMANDS.map((spec): QuotaDialogCommandSpec => ({
     id: spec.id,
     slashName: spec.id,
-    title: spec.kind === "between" ? "OpenCode Quota Token Report" : spec.metadataTitle,
+    title: spec.kind === "between" ? "OpenCode Usage Token Report" : spec.metadataTitle,
     description: spec.description,
-    dialogSize: "xlarge",
+    dialogSize: "large",
     requiresSession: spec.kind === "session" || spec.kind === "session_tree",
     acceptsArguments: spec.kind === "between",
   })),
@@ -291,7 +291,7 @@ async function buildQuotaCommandUnavailableMessage(runtime: QuotaRuntimeContext)
     providers: runtime.providers,
   });
   if (!selection) {
-    return "Quota unavailable\n\nNo enabled quota providers are configured.\n\nRun /quota_status for diagnostics.";
+    return "Quota unavailable\n\nNo enabled quota providers are configured.\n\nRun /usage_status for diagnostics.";
   }
 
   if (selection.filteringByCurrentSelection && selection.filtered.length === 0) {
@@ -299,7 +299,7 @@ async function buildQuotaCommandUnavailableMessage(runtime: QuotaRuntimeContext)
       currentModel: selection.currentModel,
       currentProviderID: selection.currentProviderID,
     });
-    return `Quota unavailable\n\nNo enabled quota providers matched the ${detail}.\n\nRun /quota_status for diagnostics.`;
+    return `Quota unavailable\n\nNo enabled quota providers matched the ${detail}.\n\nRun /usage_status for diagnostics.`;
   }
 
   const avail = await Promise.all(
@@ -323,14 +323,14 @@ async function buildQuotaCommandUnavailableMessage(runtime: QuotaRuntimeContext)
     return (
       `Quota unavailable\n\nNo quota providers detected${scopedDetail}. ` +
       "Make sure you are logged in to a supported provider (Copilot, OpenAI, etc.).\n\n" +
-      "Run /quota_status for diagnostics."
+      "Run /usage_status for diagnostics."
     );
   }
 
   return (
     `Quota unavailable\n\nProviders detected (${availableIds.join(", ")}) but returned no data. ` +
     "This may be a temporary API error.\n\n" +
-    "Run /quota_status for diagnostics."
+    "Run /usage_status for diagnostics."
   );
 }
 
@@ -512,7 +512,7 @@ async function buildStatusReport(params: {
         providers: liveProbeProviders,
       });
     } catch (error) {
-      await params.log?.("Failed to collect /quota_status live probes", {
+      await params.log?.("Failed to collect /usage_status live probes", {
         providers: liveProbeProviders.map((provider) => provider.id),
         error: error instanceof Error ? error.message : String(error),
       });
@@ -855,7 +855,7 @@ export async function buildQuotaDialogCommandOutput(params: {
     if (!parsed.ok) {
       return outputResult({
         command: params.command,
-        output: `Invalid arguments for /quota_status\n\n${parsed.error}\n\nExample:\n/quota_status {"refreshGoogleTokens": true}`,
+        output: `Invalid arguments for /usage_status\n\n${parsed.error}\n\nExample:\n/usage_status {"refreshGoogleTokens": true}`,
       });
     }
 
@@ -878,7 +878,7 @@ export async function buildQuotaDialogCommandOutput(params: {
       return outputResult({
         command: params.command,
         output:
-          "Invalid arguments for /quota_announcements\n\nThis command does not accept arguments.\n\nUsage: /quota_announcements",
+          "Invalid arguments for /usage_announcements\n\nThis command does not accept arguments.\n\nUsage: /usage_announcements",
       });
     }
 

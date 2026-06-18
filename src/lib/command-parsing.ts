@@ -2,7 +2,7 @@
  * Command parsing helpers extracted from plugin.ts.
  *
  * These utilities handle argument parsing for `/tokens_between`,
- * `/quota_status`, and other slash commands.
+ * `/usage_status`, and other slash commands.
  */
 
 /** Parsed YYYY-MM-DD date components. */

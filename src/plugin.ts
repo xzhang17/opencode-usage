@@ -222,7 +222,7 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
   let configMeta: LoadConfigMeta = createLoadConfigMeta();
   let runtimeProviders = getProviders();
 
-  // Track last session token error for /quota_status diagnostics
+  // Track last session token error for /usage_status diagnostics
   let lastSessionTokenError: SessionTokenError | undefined;
 
   const deferredQuotaRefreshes = new Map<string, DeferredQuotaRefreshState>();
@@ -648,7 +648,7 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
     const paths = configMeta.paths.length > 0 ? configMeta.paths.join(" | ") : "(none)";
 
     return [
-      `Quota Toast Debug (opencode-quota)`,
+      `Usage Toast Debug (opencode-usage)`,
       `trigger=${params.trigger} reason=${params.reason}`,
       `configSource=${configMeta.source} paths=${paths}`,
       `enabled=${config.enabled} providers=${providers}${modelPart}`,
@@ -1178,7 +1178,7 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
           body: {
             service: "quota-toast",
             level: "warn",
-            message: "Failed to collect /quota_status live probes",
+            message: "Failed to collect /usage_status live probes",
             extra: {
               providers: liveProbeProviders.map((provider) => provider.id),
               error: error instanceof Error ? error.message : String(error),

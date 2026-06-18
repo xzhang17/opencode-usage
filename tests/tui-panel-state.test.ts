@@ -40,22 +40,22 @@ describe("tui panel state helpers", () => {
     expect(getSidebarPanelLines(panel)).toEqual([]);
   });
 
-  it("shows a quota loading compact placeholder before compact status resolves", () => {
+  it("hides compact status during loading to avoid persistent placeholder", () => {
     const panel: CompactStatusState = {
       status: "loading",
     };
 
-    expect(shouldRenderCompactStatus(panel)).toBe(true);
+    expect(shouldRenderCompactStatus(panel)).toBe(false);
     expect(getCompactStatusText(panel)).toBe("Quota loading…");
   });
 
-  it("uses a non-empty loading compact text override", () => {
+  it("still uses a non-empty loading compact text override when called directly", () => {
     const panel: CompactStatusState = {
       status: "loading",
       text: "Waiting for current model",
     };
 
-    expect(shouldRenderCompactStatus(panel)).toBe(true);
+    expect(shouldRenderCompactStatus(panel)).toBe(false);
     expect(getCompactStatusText(panel)).toBe("Waiting for current model");
   });
 

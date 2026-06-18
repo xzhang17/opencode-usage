@@ -476,7 +476,7 @@ export function formatQuotaStatsReport(params: {
         },
         {
           kind: "lines",
-          lines: ["Run /quota_status to see the full pricing diagnostics report."],
+          lines: ["Run /usage_status to see the full pricing diagnostics report."],
         },
       ],
     });

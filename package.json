@@ -1,13 +1,13 @@
 {
-  "name": "@slkiser/opencode-quota",
+  "name": "opencode-usage",
   "version": "3.10.1",
   "packageManager": "pnpm@11.0.0",
-  "description": "OpenCode quota & tokens usage with zero context window pollution. Supports GitHub Copilot, OpenAI (Plus/Pro), Qwen Code, Chutes AI, Synthetic, Google Antigravity, Z.ai coding plan and more.",
+  "description": "OpenCode usage/quota and token usage with zero context window pollution. Supports GitHub Copilot, OpenAI (Plus/Pro), Qwen Code, Chutes AI, Synthetic, Google Antigravity, Z.ai coding plan and more.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "opencode-quota": "./dist/bin/opencode-quota.js"
+    "opencode-usage": "./dist/bin/opencode-quota.js"
   },
   "exports": {
     ".": {
@@ -50,6 +50,7 @@
   "keywords": [
     "opencode",
     "plugin",
+    "usage",
     "quota",
     "toast",
     "github",
@@ -63,12 +64,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/slkiser/opencode-quota.git"
+    "url": "git+https://github.com/xzhang17/opencode-usage.git"
   },
   "bugs": {
-    "url": "https://github.com/slkiser/opencode-quota/issues"
+    "url": "https://github.com/xzhang17/opencode-usage/issues"
   },
-  "homepage": "https://github.com/slkiser/opencode-quota#readme",
+  "homepage": "https://github.com/xzhang17/opencode-usage#readme",
   "devDependencies": {
     "@opencode-ai/plugin": "^1.4.3",
     "@types/node": "^22.0.0",

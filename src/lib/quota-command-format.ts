@@ -1,5 +1,5 @@
 /**
- * Verbose quota status formatter for /quota.
+ * Verbose quota status formatter for /usage.
  *
  * This is intentionally more verbose than the toast:
  * - Always shows reset countdown when available
@@ -18,7 +18,7 @@ import { buildSessionTokenSectionModel } from "./session-tokens-format.js";
 
 /**
  * Format reset time in compact form (different from toast countdown).
- * Uses seconds/minutes/hours/days format for /quota command.
+ * Uses seconds/minutes/hours/days format for /usage command.
  */
 function formatResetTimeSeconds(diffSeconds: number): string {
   if (!Number.isFinite(diffSeconds) || diffSeconds <= 0) return "now";
@@ -107,7 +107,7 @@ function buildQuotaCommandDocument(params: {
 
   return {
     heading: {
-      title: "Quota (/quota)",
+      title: "Usage (/usage)",
       generatedAtMs: params.generatedAtMs,
     },
     sections,
