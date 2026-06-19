@@ -213,7 +213,7 @@ export const QUOTA_DIALOG_COMMANDS: readonly QuotaDialogCommandSpec[] = [
     id: "quota",
     slashName: "quota",
     title: "OpenCode Quota",
-    description: "Show deterministic quota output in a local TUI dialog.",
+    description: "Show deterministic quota output.",
     dialogSize: "xlarge",
     requiresSession: true,
   },
