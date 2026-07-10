@@ -14,12 +14,25 @@ Start here when quota or token data looks wrong.
 4. If token reports are empty, start OpenCode once so it creates `opencode.db`, then run a session with model usage.
 5. Use the provider-specific table below for the failing provider.
 
+## Update OpenCode Quota safely
+
+1. Close OpenCode.
+2. Run:
+
+   ```bash
+   npx @slkiser/opencode-quota@latest update
+   ```
+
+3. Review the exact config edits and cache directories, then confirm.
+4. Restart OpenCode.
+
+Use `--dry-run` to preview without changing anything. Use `--yes` only for explicit noninteractive confirmation. The update command changes only canonical OpenCode Quota plugin entries and removes only verified OpenCode Quota cache directories; it preserves settings, JSONC comments, tuple options, and other plugins.
+
 ### Common symptoms
 
 | Symptom                                                         | Try this                                                                                                                                                                                                                                                                                                                                |
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/quota` or other slash commands do not appear                  | Confirm `opencode.json` includes `@slkiser/opencode-quota`, then restart OpenCode. The server plugin registers each command once for both TUI and Desktop/server; `tui.json` only enables the visual TUI surfaces.                                                                                                                      |
-| Installer completed but old plugin behavior remains             | Restart OpenCode to load the pinned plugin version. Deleting OpenCode caches is unnecessary.                                                                                                                                                                                                                                            |
 | `/quota` shows no providers                                     | Run `/quota_status`, then check provider detection and auth. You can also use `opencode-quota show` for a terminal quota summary.                                                                                                                                                                                                       |
 | Sidebar panel does not appear                                   | Confirm `tui.json` includes `@slkiser/opencode-quota`, restart OpenCode, and check `tuiSidebarPanel.enabled`.                                                                                                                                                                                                                           |
 | Compact status line does not appear anywhere                    | Confirm `tui.json` includes `@slkiser/opencode-quota`, restart OpenCode, check `tuiCompactStatus.enabled`, and check whether `tuiCompactStatus.suppressWhenNativeProviderQuota` is hiding it because OpenCode exposes native provider-quota support.                                                                                    |
