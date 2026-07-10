@@ -4,11 +4,9 @@ import { basename } from "path";
 
 import { writeJsonAtomic } from "./atomic-json.js";
 import {
-  classifyQuotaNpmSpec,
   dedupeNonEmptyStrings,
   extractPluginSpecsFromParsedConfig,
   getPluginSpecFromEntry,
-  isCanonicalExactSemVer,
   isQuotaPluginSpec,
   resolveEditableConfigPath,
   findGitWorktreeRoot,
@@ -29,9 +27,8 @@ import {
 } from "./quota-format-style.js";
 import { getQuotaToastConfigPath, QUOTA_TOAST_CONFIG_RELATIVE_PATH } from "./config.js";
 import type { QuotaToastConfig } from "./types.js";
-import { getPackageVersion } from "./version.js";
 
-const QUOTA_PLUGIN_PACKAGE = "@slkiser/opencode-quota";
+const QUOTA_PLUGIN_SPEC = "@slkiser/opencode-quota@latest";
 const OPENCODE_SCHEMA_URL = "https://opencode.ai/config.json";
 const TUI_SCHEMA_URL = "https://opencode.ai/tui.json";
 const GITHUB_REPO_URL = "https://github.com/slkiser/opencode-quota";
@@ -279,49 +276,25 @@ function ensureSchema(root: JsonObject, schemaUrl: string, edit: PlannedConfigEd
   pushSkippedIfChanged(edit, "$schema", root.$schema, schemaUrl);
 }
 
-function updateEligibleQuotaPluginSpecs(params: {
+function appendQuotaPluginIfMissing(params: {
   container: unknown[];
   pathLabel: string;
-  desiredSpec: string;
-  runningVersion: string;
-  edit: PlannedConfigEdit;
-}): number {
-  let updatedCount = 0;
-
-  for (let index = 0; index < params.container.length; index += 1) {
-    const entry = params.container[index];
-    const rawSpec =
-      typeof entry === "string"
-        ? entry
-        : Array.isArray(entry) && typeof entry[0] === "string"
-          ? entry[0]
-          : null;
-    if (!rawSpec || classifyQuotaNpmSpec(rawSpec, params.runningVersion).kind !== "replace") {
-      continue;
-    }
-
-    if (typeof entry === "string") {
-      params.container[index] = params.desiredSpec;
-    } else if (Array.isArray(entry)) {
-      entry[0] = params.desiredSpec;
-    }
-    params.edit.changed = true;
-    params.edit.updatedKeys.push(`${params.pathLabel}[${index}] plugin spec`);
-    updatedCount += 1;
-  }
-
-  return updatedCount;
-}
-
-function appendDesiredQuotaPlugin(params: {
-  container: unknown[];
-  pathLabel: string;
-  desiredSpec: string;
+  kind: "opencode" | "tui";
   edit: PlannedConfigEdit;
 }): void {
-  params.container.push(params.desiredSpec);
+  const alreadyConfigured = params.container.some((entry) => {
+    const spec = getPluginSpecFromEntry(entry);
+    return typeof spec === "string" && isQuotaPluginSpec(spec, params.kind);
+  });
+
+  if (alreadyConfigured) {
+    params.edit.skippedValues.push(`${params.pathLabel} already includes ${QUOTA_PLUGIN_SPEC}`);
+    return;
+  }
+
+  params.container.push(QUOTA_PLUGIN_SPEC);
   params.edit.changed = true;
-  params.edit.addedPlugins.push(`${params.pathLabel}: ${params.desiredSpec}`);
+  params.edit.addedPlugins.push(`${params.pathLabel}: ${QUOTA_PLUGIN_SPEC}`);
 }
 
 function ensureTopLevelPluginArray(root: JsonObject, edit: PlannedConfigEdit): unknown[] {
@@ -672,8 +645,6 @@ function syncLegacyQuotaToast(params: {
 async function planOpencodeEdit(params: {
   selections: InitInstallerSelections;
   baseDir: string;
-  desiredSpec: string;
-  runningVersion: string;
   legacyQuotaToastToSync?: JsonObject;
 }): Promise<PlannedConfigEdit> {
   const target = resolveEditableConfigPath({ dir: params.baseDir, kind: "opencode" });
@@ -698,34 +669,12 @@ async function planOpencodeEdit(params: {
   ensureSchema(root, OPENCODE_SCHEMA_URL, edit);
 
   const plugin = ensureTopLevelPluginArray(root, edit);
-  const updatedPluginCount = updateEligibleQuotaPluginSpecs({
+  appendQuotaPluginIfMissing({
     container: plugin,
     pathLabel: "plugin",
-    desiredSpec: params.desiredSpec,
-    runningVersion: params.runningVersion,
+    kind: "opencode",
     edit,
   });
-  const alreadyConfigured = plugin.some((entry) => {
-    const spec = getPluginSpecFromEntry(entry);
-    return typeof spec === "string" && isQuotaPluginSpec(spec, "opencode");
-  });
-  if (!alreadyConfigured) {
-    appendDesiredQuotaPlugin({
-      container: plugin,
-      pathLabel: "plugin",
-      desiredSpec: params.desiredSpec,
-      edit,
-    });
-  } else if (updatedPluginCount === 0) {
-    const hasDesiredSpec = plugin.some(
-      (entry) => getPluginSpecFromEntry(entry) === params.desiredSpec,
-    );
-    edit.skippedValues.push(
-      hasDesiredSpec
-        ? `plugin already includes ${params.desiredSpec}`
-        : "plugin existing quota plugin spec preserved",
-    );
-  }
 
   if (params.legacyQuotaToastToSync) {
     syncLegacyQuotaToast({
@@ -843,8 +792,6 @@ async function planQuotaConfigEdit(params: {
 async function planTuiEdit(params: {
   selections: InitInstallerSelections;
   baseDir: string;
-  desiredSpec: string;
-  runningVersion: string;
 }): Promise<PlannedConfigEdit> {
   const target = resolveEditableConfigPath({ dir: params.baseDir, kind: "tui" });
   const edit: PlannedConfigEdit = {
@@ -866,41 +813,17 @@ async function planTuiEdit(params: {
   const root = target.existed ? await readExistingConfig(target) : {};
   ensureSchema(root, TUI_SCHEMA_URL, edit);
 
-  let updatedPluginCount = 0;
-  if (Array.isArray(root.plugin)) {
-    updatedPluginCount += updateEligibleQuotaPluginSpecs({
-      container: root.plugin,
-      pathLabel: "plugin",
-      desiredSpec: params.desiredSpec,
-      runningVersion: params.runningVersion,
-      edit,
-    });
-  }
-  if (isPlainObject(root.tui) && Array.isArray(root.tui.plugin)) {
-    updatedPluginCount += updateEligibleQuotaPluginSpecs({
-      container: root.tui.plugin,
-      pathLabel: "tui.plugin",
-      desiredSpec: params.desiredSpec,
-      runningVersion: params.runningVersion,
-      edit,
-    });
-  }
-
   const existingPluginSpecs = extractPluginSpecsFromParsedConfig(root);
-  if (!existingPluginSpecs.some((spec) => isQuotaPluginSpec(spec, "tui"))) {
+  if (existingPluginSpecs.some((spec) => isQuotaPluginSpec(spec, "tui"))) {
+    edit.skippedValues.push(`tui config already includes ${QUOTA_PLUGIN_SPEC}`);
+  } else {
     const pluginTarget = ensureTuiPluginArray(root, edit);
-    appendDesiredQuotaPlugin({
+    appendQuotaPluginIfMissing({
       container: pluginTarget.container,
       pathLabel: pluginTarget.pathLabel,
-      desiredSpec: params.desiredSpec,
+      kind: "tui",
       edit,
     });
-  } else if (updatedPluginCount === 0) {
-    edit.skippedValues.push(
-      existingPluginSpecs.includes(params.desiredSpec)
-        ? `tui config already includes ${params.desiredSpec}`
-        : "tui config existing quota plugin spec preserved",
-    );
   }
 
   if (edit.changed) {
@@ -1011,14 +934,6 @@ export async function planInitInstaller(params: {
   homeDir?: string;
   syncLegacyConfig?: boolean;
 }): Promise<InitInstallerPlan> {
-  const runningVersion = await getPackageVersion();
-  if (!runningVersion || !isCanonicalExactSemVer(runningVersion)) {
-    throw new InitInstallerError(
-      "Cannot plan quota init because the running package version is missing or invalid.",
-    );
-  }
-  const desiredSpec = `${QUOTA_PLUGIN_PACKAGE}@${runningVersion}`;
-
   const quotaUiIntent = normalizeQuotaUiIntent(params.selections);
   const selections: InitInstallerSelections = {
     ...params.selections,
@@ -1040,14 +955,12 @@ export async function planInitInstaller(params: {
     await planOpencodeEdit({
       selections,
       baseDir,
-      desiredSpec,
-      runningVersion,
       legacyQuotaToastToSync: params.syncLegacyConfig ? quotaEdit.plannedData : undefined,
     }),
     quotaEdit,
   ];
   if (quotaUiIntent.installTuiPlugin) {
-    edits.push(await planTuiEdit({ selections, baseDir, desiredSpec, runningVersion }));
+    edits.push(await planTuiEdit({ selections, baseDir }));
   }
 
   const quickSetupNotes = buildQuickSetupNotes(selections);
@@ -1258,9 +1171,7 @@ export async function runInitInstaller(params?: {
     }
 
     if (!plan.edits.some((edit) => edit.changed)) {
-      prompts.outro(
-        `No changes needed — restart OpenCode to load the pinned plugin version — ${GITHUB_STAR_NOTE}`,
-      );
+      prompts.outro(`No changes needed — ${GITHUB_STAR_NOTE}`);
       return 0;
     }
 
@@ -1288,9 +1199,7 @@ export async function runInitInstaller(params?: {
       }
     }
 
-    prompts.outro(
-      `Quota init complete — restart OpenCode to load the pinned plugin version — ${GITHUB_STAR_NOTE}`,
-    );
+    prompts.outro(`Quota init complete — ${GITHUB_STAR_NOTE}`);
     return 0;
   } catch (error) {
     if (error instanceof InitInstallerError) {
