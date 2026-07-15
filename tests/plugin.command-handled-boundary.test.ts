@@ -142,7 +142,7 @@ describe("plugin command handled boundary", () => {
     expect(new Set(QUOTA_DIALOG_COMMANDS.map((spec) => spec.slashName)).size).toBe(12);
     expect(Object.keys(cfg.command ?? {})).toHaveLength(12);
     for (const spec of QUOTA_DIALOG_COMMANDS) {
-      expect(cfg.command?.[spec.id]).toEqual({
+      expect(cfg.command?.[spec.slashName]).toEqual({
         template: `/${spec.slashName}`,
         description: spec.description,
       });
@@ -161,7 +161,7 @@ describe("plugin command handled boundary", () => {
     expect(client.session.prompt).not.toHaveBeenCalled();
   });
 
-  it("handles server /quota by injecting deterministic output and aborting continuation", async () => {
+  it("handles server /usage by injecting deterministic output and aborting continuation", async () => {
     mocks.getProviders.mockReturnValue([
       {
         id: "boom-provider",
@@ -170,7 +170,7 @@ describe("plugin command handled boundary", () => {
       },
     ]);
 
-    const { client } = await runServerCommand({ command: "quota", sessionID: "session-2" });
+    const { client } = await runServerCommand({ command: "usage", sessionID: "session-2" });
 
     expect(client.session.prompt).toHaveBeenCalledTimes(1);
     expect(client.session.prompt).toHaveBeenCalledWith(
@@ -227,7 +227,7 @@ describe("plugin command handled boundary", () => {
     const hooks = await loadPluginHooks(client);
 
     await expect(
-      hooks["command.execute.before"]?.({ command: "quota", sessionID: "session-inject-fails" }),
+      hooks["command.execute.before"]?.({ command: "usage", sessionID: "session-inject-fails" }),
     ).rejects.toBe(injectionError);
 
     expect(isCommandHandledError(injectionError)).toBe(false);

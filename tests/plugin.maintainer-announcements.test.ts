@@ -211,7 +211,7 @@ describe("maintainer announcement plugin integration", () => {
     const cfg: any = {};
 
     await hooks.config?.(cfg);
-    expect(cfg.command?.quota_announcements).toEqual({
+    expect(cfg.command?.usage_announcements).toEqual({
       template: `/${announcementCommand?.slashName}`,
       description: announcementCommand?.description,
     });

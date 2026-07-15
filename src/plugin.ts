@@ -58,7 +58,7 @@ import { handled } from "./lib/command-handled.js";
 import {
   QUOTA_DIALOG_COMMANDS,
   buildQuotaDialogCommandOutput,
-  isQuotaDialogCommand,
+  resolveQuotaDialogCommandIdBySlashName,
   type QuotaDialogCommandId,
 } from "./lib/quota-dialog-commands.js";
 
@@ -407,17 +407,19 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
     cfg.command ??= {};
 
     for (const spec of QUOTA_DIALOG_COMMANDS) {
-      cfg.command[spec.id] = {
+      cfg.command[spec.slashName] = {
         template: `/${spec.slashName}`,
         description: spec.description,
       };
     }
   }
 
-  async function handleDeterministicSlashCommand(input: CommandExecuteInput): Promise<never> {
-    const command = input.command as QuotaDialogCommandId;
+  async function handleDeterministicSlashCommand(
+    input: CommandExecuteInput,
+    commandId: QuotaDialogCommandId,
+  ): Promise<never> {
     const result = await buildQuotaDialogCommandOutput({
-      command,
+      command: commandId,
       arguments: input.arguments,
       client: typedClient,
       roots: getPluginRuntimeRootHints(),
@@ -1315,8 +1317,9 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
     },
 
     "command.execute.before": async (input: CommandExecuteInput) => {
-      if (!isQuotaDialogCommand(input.command)) return;
-      await handleDeterministicSlashCommand(input);
+      const commandId = resolveQuotaDialogCommandIdBySlashName(input.command);
+      if (!commandId) return;
+      await handleDeterministicSlashCommand(input, commandId);
     },
 
     tool: {

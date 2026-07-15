@@ -266,6 +266,20 @@ export function isQuotaDialogCommand(command: string): command is QuotaDialogCom
   return QUOTA_DIALOG_COMMANDS_BY_ID.has(command as QuotaDialogCommandId);
 }
 
+const QUOTA_DIALOG_COMMANDS_BY_SLASH_NAME: ReadonlyMap<string, QuotaDialogCommandId> = (() => {
+  const map = new Map<string, QuotaDialogCommandId>();
+  for (const spec of QUOTA_DIALOG_COMMANDS) {
+    map.set(spec.slashName, spec.id);
+  }
+  return map;
+})();
+
+export function resolveQuotaDialogCommandIdBySlashName(
+  slashName: string,
+): QuotaDialogCommandId | undefined {
+  return QUOTA_DIALOG_COMMANDS_BY_SLASH_NAME.get(slashName);
+}
+
 function isTokenReportCommand(cmd: string): cmd is TokenReportCommandId {
   return TOKEN_REPORT_COMMANDS_BY_ID.has(cmd as TokenReportCommandId);
 }
