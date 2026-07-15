@@ -54,6 +54,13 @@ import {
   formatMaintainerAnnouncementHomeCountLine,
   getMaintainerAnnouncementsSummary,
 } from "./lib/maintainer-announcements.js";
+import { handled } from "./lib/command-handled.js";
+import {
+  QUOTA_DIALOG_COMMANDS,
+  buildQuotaDialogCommandOutput,
+  isQuotaDialogCommand,
+  type QuotaDialogCommandId,
+} from "./lib/quota-dialog-commands.js";
 
 // =============================================================================
 // Types
@@ -144,6 +151,13 @@ interface PluginConfigInput {
   default_agent?: string;
 }
 
+/** Server command execution hook input */
+interface CommandExecuteInput {
+  command: string;
+  arguments?: string;
+  sessionID: string;
+}
+
 // =============================================================================
 // Deferred Quota Refresh Specification
 // =============================================================================
@@ -190,7 +204,11 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
    * Inject tool output directly into the session without triggering an LLM response.
    * This prevents models from summarizing/rewriting our carefully formatted reports.
    */
-  async function injectRawOutput(sessionID: string, output: string): Promise<void> {
+  async function injectRawOutput(
+    sessionID: string,
+    output: string,
+    options: { rethrow?: boolean } = {},
+  ): Promise<void> {
     try {
       await typedClient.session.prompt({
         path: { id: sessionID },
@@ -202,7 +220,7 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
         },
       });
     } catch (err) {
-      // Log but don't fail - the tool output will still be returned
+      // Log but don't fail by default - tool output can still be returned.
       await typedClient.app.log({
         body: {
           service: "quota-toast",
@@ -211,6 +229,9 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
           extra: { error: err instanceof Error ? err.message : String(err) },
         },
       });
+      if (options.rethrow) {
+        throw err;
+      }
     }
   }
 
@@ -380,6 +401,40 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
       configRoot,
       fallbackDirectory: cwd,
     };
+  }
+
+  function registerDeterministicSlashCommands(cfg: PluginConfigInput): void {
+    cfg.command ??= {};
+
+    for (const spec of QUOTA_DIALOG_COMMANDS) {
+      cfg.command[spec.id] = {
+        template: `/${spec.slashName}`,
+        description: spec.description,
+      };
+    }
+  }
+
+  async function handleDeterministicSlashCommand(input: CommandExecuteInput): Promise<never> {
+    const command = input.command as QuotaDialogCommandId;
+    const result = await buildQuotaDialogCommandOutput({
+      command,
+      arguments: input.arguments,
+      client: typedClient,
+      roots: getPluginRuntimeRootHints(),
+      sessionID: input.sessionID,
+      resolveSessionMeta: (sessionID) => getSessionModelMeta(sessionID),
+      lastSessionTokenError,
+      setLastSessionTokenError: (error) => {
+        lastSessionTokenError = error;
+      },
+      log,
+    });
+
+    if (result.state === "output") {
+      await injectRawOutput(input.sessionID, result.output, { rethrow: true });
+    }
+
+    handled();
   }
 
   function triggerMaintainerAnnouncementToastFallback(
@@ -1241,10 +1296,9 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
 
   // Return hook implementations
   return {
-    // Preserve unrelated config repair only. Deterministic quota slash commands are
-    // registered by the TUI plugin as palette/slash dialog commands.
     config: async (input: unknown) => {
       const cfg = input as PluginConfigInput;
+      registerDeterministicSlashCommands(cfg);
 
       // Fix zero-width space mismatch between default_agent and agent keys.
       // Some plugins remap agent keys with invisible Unicode prefixes for sort
@@ -1258,6 +1312,11 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
           cfg.default_agent = matches[0];
         }
       }
+    },
+
+    "command.execute.before": async (input: CommandExecuteInput) => {
+      if (!isQuotaDialogCommand(input.command)) return;
+      await handleDeterministicSlashCommand(input);
     },
 
     tool: {

@@ -406,10 +406,14 @@ function normalizeSingleWindowPresentation(
       : typeof legacyPresentation.classicShowRight === "boolean"
         ? legacyPresentation.classicShowRight
         : false;
+  const classicStrategy = legacyPresentation.classicStrategy === "preserve"
+    ? legacyPresentation.classicStrategy
+    : undefined;
 
   return {
     ...(singleWindowDisplayName ? { singleWindowDisplayName } : {}),
     ...(singleWindowShowRight ? { singleWindowShowRight } : {}),
+    ...(classicStrategy ? { classicStrategy } : {}),
   };
 }
 
@@ -440,6 +444,18 @@ function projectProviderResultToStyle(
   }
 
   const presentation = normalizeSingleWindowPresentation(result.presentation);
+  if (presentation?.classicStrategy === "preserve") {
+    return entries.map((entry) => {
+      const nameEntry = { ...entry, group: undefined };
+      return renameSingleWindowEntry(
+        stripSingleWindowEntryMeta(entry, presentation?.singleWindowShowRight ?? false),
+        buildSingleWindowName({
+          entry: nameEntry,
+          singleWindowDisplayName: presentation.singleWindowDisplayName ?? entry.name,
+        }),
+      );
+    });
+  }
   const selectedEntry = selectSingleWindowEntry(entries);
   if (!selectedEntry) {
     return [];

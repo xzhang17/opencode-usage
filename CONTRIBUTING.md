@@ -81,10 +81,12 @@ Recommended settings for `main`:
 ## Repo Guardrails
 
 - Never invoke an LLM/model API to compute toast/report output. Everything must remain local and deterministic.
-- Keep deterministic slash command output on the TUI dialog/palette path, not `command.execute.before`. Returning normally from that server hook lets OpenCode continue into `prompt(...)`, while throwing from it can surface hook errors.
-- Do not use `session.prompt()` for migrated slash command outputs (`/quota`, `/quota_status`, `/quota_announcements`, `/pricing_refresh`, `/tokens_*`). They must remain local, deterministic TUI dialog output with no model call and no OpenCode session transcript write.
-- Keep `handled()` / `isCommandHandledError(...)` tests only for compatibility of the branded sentinel helper; do not reintroduce server slash command ownership for migrated dialog commands.
-- `injectRawOutput()` still uses `session.prompt({ noReply: true, ignored: true })` for the server `tool.quota_status` compatibility path. Do not reuse it for dialog slash commands.
+- The server plugin is the sole owner of deterministic slash commands for TUI and Desktop/server. It registers each `cfg.command` once, injects exactly one ignored/no-reply output message with `session.prompt({ noReply: true, ignored: true })`, and must throw `handled()` so OpenCode does not continue into `prompt(...)`.
+- The TUI plugin owns only Sidebar, Compact status, home-bottom, prompt-wrapper, refresh, and resource-lifecycle surfaces. It must not register keymap commands or render native slash-command dialogs.
+- Slash commands (`/quota`, `/quota_status`, `/quota_announcements`, `/pricing_refresh`, `/tokens_*`) must route through `buildQuotaDialogCommandOutput()`; do not duplicate command-output logic in `src/plugin.ts`.
+- The handled-sentinel path can surface popup/log noise until upstream adds a clean cancellation API; keep docs aligned with anomalyco/opencode#18554 and anomalyco/opencode#18559.
+- Keep `handled()` / `isCommandHandledError(...)` tests aligned with the server/web/desktop handled-sentinel boundary.
+- `injectRawOutput()` is shared by inline slash commands and the server `tool.quota_status` compatibility path.
 - Keep `tests/plugin.command-handled-boundary.test.ts`, `tests/tui-smoke.test.ts`, and `tests/command-handled.test.ts` aligned with these invariants.
 
 Additional boundary tests to keep healthy when touching plugin/provider logic:

@@ -193,7 +193,7 @@ describe("maintainer announcement plugin integration", () => {
     await rm(TEST_RUNTIME_ROOT, { recursive: true, force: true });
   });
 
-  it("builds the no-arg /quota_announcements dialog output", async () => {
+  it("registers and builds the no-arg /quota_announcements deterministic output", async () => {
     const provider = {
       id: "copilot",
       isAvailable: vi.fn().mockResolvedValue(true),
@@ -202,12 +202,19 @@ describe("maintainer announcement plugin integration", () => {
     mocks.getProviders.mockReturnValue([provider]);
 
     const { QuotaToastPlugin } = await import("../src/plugin.js");
+    const { QUOTA_DIALOG_COMMANDS } = await import("../src/lib/quota-dialog-commands.js");
+    const announcementCommand = QUOTA_DIALOG_COMMANDS.find(
+      (command) => command.id === "quota_announcements",
+    );
     const client = createClient();
     const hooks = await QuotaToastPlugin({ client } as any);
     const cfg: any = {};
 
     await hooks.config?.(cfg);
-    expect(cfg.command?.quota_announcements).toBeUndefined();
+    expect(cfg.command?.quota_announcements).toEqual({
+      template: `/${announcementCommand?.slashName}`,
+      description: announcementCommand?.description,
+    });
 
     const output = await buildAnnouncementsDialogOutput({ client });
 

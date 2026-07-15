@@ -1,6 +1,6 @@
 {
   "name": "opencode-usage",
-  "version": "3.10.1",
+  "version": "3.11.2",
   "packageManager": "pnpm@11.0.0",
   "description": "OpenCode usage/quota and token usage with zero context window pollution. Supports GitHub Copilot, OpenAI (Plus/Pro), Qwen Code, Chutes AI, Synthetic, Google Antigravity, Z.ai coding plan and more.",
   "type": "module",
@@ -20,7 +20,7 @@
     },
     "./tui": {
       "types": "./dist/tui.d.ts",
-      "default": "./dist/tui.tsx"
+      "default": "./dist/tui.js"
     }
   },
   "oc-plugin": [
@@ -71,19 +71,23 @@
   },
   "homepage": "https://github.com/xzhang17/opencode-usage#readme",
   "devDependencies": {
+    "@babel/core": "^7.28.0",
+    "@babel/preset-typescript": "^7.27.1",
     "@opencode-ai/plugin": "^1.4.3",
     "@types/node": "^22.0.0",
+    "babel-preset-solid": "^1.9.12",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "prettier": "^3.8.0",
-    "typescript": "^5.8.0",
+    "typescript": "^5.9.3",
     "vitest": "^4.0.17"
   },
   "dependencies": {
     "@clack/prompts": "^1.2.0",
-    "@opentui/core": "^0.2.7",
-    "@opentui/solid": "^0.2.7",
+    "@opentui/core": "^0.4.3",
+    "@opentui/solid": "^0.4.3",
     "comment-json": "^5.0.0",
+    "jsonc-parser": "^3.3.1",
     "solid-js": "^1.9.12",
     "xdg-basedir": "^5.1.0"
   },

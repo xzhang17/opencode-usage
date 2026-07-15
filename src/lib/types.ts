@@ -10,13 +10,17 @@ import { DEFAULT_QUOTA_FORMAT_STYLE } from "./quota-format-style.js";
 // =============================================================================
 
 /** Google model identifiers */
-export type GoogleModelId = "G3PRO" | "G3FLASH" | "CLAUDE" | "G3IMAGE";
+export type GoogleModelId = "G3PRO" | "G3FLASH" | "CLAUDE" | "G3IMAGE" | "GPTOSS";
 export type GeminiCliAuthSourceKey =
   | "google-gemini-cli"
   | "gemini-cli"
   | "opencode-gemini-auth"
   | "gemini"
   | "google";
+export type GoogleAgyAuthSourceKey =
+  | "google-agy"
+  | "opencode-agy-auth"
+  | "google-agy-auth";
 export type CursorQuotaPlan = "none" | "pro" | "pro-plus" | "ultra";
 export type PricingSnapshotSource = "auto" | "bundled" | "runtime";
 export type PercentDisplayMode = "remaining" | "used";
@@ -363,6 +367,9 @@ export interface AuthData {
   "gemini-cli"?: GeminiCliOAuthAuthData;
   "opencode-gemini-auth"?: GeminiCliOAuthAuthData;
   gemini?: GeminiCliOAuthAuthData;
+  "google-agy"?: GeminiCliOAuthAuthData;
+  "opencode-agy-auth"?: GeminiCliOAuthAuthData;
+  "google-agy-auth"?: GeminiCliOAuthAuthData;
   openai?: OpenAIOAuthData;
   // Some OpenCode installs store ChatGPT auth under "codex".
   codex?: OpenAIOAuthData;
@@ -597,6 +604,26 @@ export interface GeminiCliQuotaResult {
   errors?: GoogleAccountError[];
 }
 
+export interface GoogleAgyQuotaBucket {
+  modelId: string;
+  displayName: string;
+  percentRemaining: number;
+  resetTimeIso?: string;
+  remainingAmount?: string;
+  tokenType?: string;
+  accountEmail?: string;
+  accountKey?: string;
+  sourceKey?: GoogleAgyAuthSourceKey;
+}
+
+export interface GoogleAgyQuotaResult {
+  success: true;
+  buckets: GoogleAgyQuotaBucket[];
+  errors?: GoogleAccountError[];
+}
+
+export type GoogleAgyResult = GoogleAgyQuotaResult | QuotaError | null;
+
 /** Result from fetching Google quota */
 export interface GoogleQuotaResult {
   success: true;
@@ -729,14 +756,23 @@ export const GOOGLE_MODEL_KEYS: Record<
 > = {
   G3PRO: {
     key: "gemini-3.1-pro",
-    altKey: "gemini-3.1-pro-high|gemini-3.1-pro-low|gemini-3-pro-high|gemini-3-pro-low",
+    altKey: "gemini-3.1-pro-high|gemini-3.1-pro-low|gemini-3-pro-high|gemini-3-pro-low|gemini-3.5-pro-high|gemini-3.5-pro-low",
     display: "G3Pro",
   },
-  G3FLASH: { key: "gemini-3-flash", display: "G3Flash" },
+  G3FLASH: {
+    key: "gemini-3-flash",
+    altKey: "gemini-3-flash-medium|gemini-3-flash-high|gemini-3-flash-low|gemini-3-5-flash-medium|gemini-3-5-flash-high|gemini-3-5-flash-low|gemini-3.5-flash-medium|gemini-3.5-flash-high|gemini-3.5-flash-low",
+    display: "G3Flash",
+  },
   CLAUDE: {
     key: "claude-opus-4-6-thinking",
-    altKey: "claude-opus-4-5-thinking|claude-opus-4-5",
+    altKey: "claude-opus-4-5-thinking|claude-opus-4-5|claude-sonnet-4-6|claude-sonnet-4-6-thinking|claude-opus-4-6|gemini-claude-sonnet-4-6|gemini-claude-opus-4-6-thinking",
     display: "Claude",
   },
   G3IMAGE: { key: "gemini-3-pro-image", display: "G3Image" },
+  GPTOSS: {
+    key: "gpt-oss-120b-medium",
+    altKey: "gpt-oss-120b-high|gpt-oss-120b-low|gpt-oss-120b",
+    display: "GPT-OSS",
+  },
 };

@@ -151,12 +151,7 @@ function jsonEqual(left: unknown, right: unknown): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
-const QUOTA_UI_CHOICE_ORDER: InitQuotaUiChoice[] = [
-  "toast",
-  "sidebar",
-  "compact_status",
-  "none",
-];
+const QUOTA_UI_CHOICE_ORDER: InitQuotaUiChoice[] = ["toast", "sidebar", "compact_status", "none"];
 
 function normalizeQuotaUiIntent(selections: InitInstallerSelections): NormalizedQuotaUiIntent {
   const legacySelections = selections as LegacyInitInstallerSelectionsInput;
@@ -169,7 +164,10 @@ function normalizeQuotaUiIntent(selections: InitInstallerSelections): Normalized
   const seen = new Set<InitQuotaUiChoice>();
 
   for (const rawChoice of rawChoices) {
-    if (typeof rawChoice !== "string" || !QUOTA_UI_CHOICE_ORDER.includes(rawChoice as InitQuotaUiChoice)) {
+    if (
+      typeof rawChoice !== "string" ||
+      !QUOTA_UI_CHOICE_ORDER.includes(rawChoice as InitQuotaUiChoice)
+    ) {
       throw new InitInstallerError(`Unknown Quota UI option: ${String(rawChoice)}`);
     }
     seen.add(rawChoice as InitQuotaUiChoice);
@@ -208,7 +206,7 @@ function getUiLabel(choices: readonly InitQuotaUiChoice[]): string {
     if (choice === "toast") return "Toast";
     if (choice === "sidebar") return "Sidebar";
     if (choice === "compact_status") return "Compact status";
-    return "Terminal only";
+    return "No automatic UI surfaces";
   });
   return labels.join(" + ");
 }
@@ -502,7 +500,13 @@ function planTuiCompactStatusConfig(params: {
     return;
   }
 
-  setInstallerOwnedSetting(tuiCompactStatus, "homeBottom", true, `${pathLabel}.homeBottom`, params.edit);
+  setInstallerOwnedSetting(
+    tuiCompactStatus,
+    "homeBottom",
+    true,
+    `${pathLabel}.homeBottom`,
+    params.edit,
+  );
   setInstallerOwnedSetting(
     tuiCompactStatus,
     "sessionPrompt",
@@ -560,9 +564,8 @@ async function readLegacyQuotaToastSeed(baseDir: string): Promise<JsonObject | n
 
   const root = await readExistingConfig(target);
   const experimental = isPlainObject(root.experimental) ? root.experimental : null;
-  const quotaToast = experimental && isPlainObject(experimental.quotaToast)
-    ? experimental.quotaToast
-    : null;
+  const quotaToast =
+    experimental && isPlainObject(experimental.quotaToast) ? experimental.quotaToast : null;
   return quotaToast ? cloneJsonObject(quotaToast) : null;
 }
 
@@ -1011,7 +1014,11 @@ async function promptForSelections(
     message: "Install scope",
     options: [
       { label: "Project config", value: "project", hint: "install only for this repo/worktree" },
-      { label: "Global OpenCode config", value: "global", hint: "install for all projects using your global config" },
+      {
+        label: "Global OpenCode config",
+        value: "global",
+        hint: "install for all projects using your global config",
+      },
     ],
   });
   if (prompts.isCancel(scope)) return null;
@@ -1020,13 +1027,25 @@ async function promptForSelections(
     message: "Quota UI",
     required: true,
     options: [
-      { label: "Toast", value: "toast", hint: "popup quota summaries after idle/question/compact events" },
-      { label: "Sidebar panel", value: "sidebar", hint: "full Quota panel in the OpenCode session sidebar" },
-      { label: "Compact status line", value: "compact_status", hint: "short quota summary in the TUI status area" },
       {
-        label: "Terminal command only",
+        label: "Toast",
+        value: "toast",
+        hint: "popup quota summaries after idle/question/compact events",
+      },
+      {
+        label: "Sidebar panel",
+        value: "sidebar",
+        hint: "full Quota panel in the OpenCode session sidebar",
+      },
+      {
+        label: "Compact status line",
+        value: "compact_status",
+        hint: "short quota summary in the TUI status area",
+      },
+      {
+        label: "No automatic UI surfaces",
         value: "none",
-        hint: "no toast, sidebar, compact status, or TUI slash-command dialogs",
+        hint: "no toast, sidebar, compact status, or TUI dialogs; server slash commands stay installed",
       },
     ],
   });
@@ -1038,8 +1057,16 @@ async function promptForSelections(
   const providerMode = await prompts.select({
     message: "Provider mode",
     options: [
-      { label: "Auto-detect providers", value: "auto", hint: "recommended; use providers found in your OpenCode/auth setup" },
-      { label: "Choose providers manually", value: "manual", hint: "only track the providers you select" },
+      {
+        label: "Auto-detect providers",
+        value: "auto",
+        hint: "recommended; use providers found in your OpenCode/auth setup",
+      },
+      {
+        label: "Choose providers manually",
+        value: "manual",
+        hint: "only track the providers you select",
+      },
     ],
   });
   if (prompts.isCancel(providerMode)) return null;
@@ -1086,7 +1113,11 @@ async function promptForSelections(
     message: "Session token details",
     options: [
       { label: "Hide session tokens", value: "no", hint: "keep quota output shorter" },
-      { label: "Show session tokens", value: "yes", hint: "include current session input/output token counts when available" },
+      {
+        label: "Show session tokens",
+        value: "yes",
+        hint: "include current session input/output token counts when available",
+      },
     ],
   });
   if (prompts.isCancel(showSessionTokens)) return null;

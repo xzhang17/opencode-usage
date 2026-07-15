@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { join } from "node:path";
 
-import { getEffectiveConfigRoot, resolveRuntimeContextRoots } from "../src/lib/config-file-utils.js";
+import {
+  getEffectiveConfigRoot,
+  resolveRuntimeContextRoots,
+} from "../src/lib/config-file-utils.js";
 
 describe("getEffectiveConfigRoot", () => {
   const original = process.env.OPENCODE_CONFIG_DIR;
@@ -26,7 +29,9 @@ describe("getEffectiveConfigRoot", () => {
 
   it("resolves relative OPENCODE_CONFIG_DIR from fallback", () => {
     process.env.OPENCODE_CONFIG_DIR = ".opencode";
-    expect(getEffectiveConfigRoot("/home/user/project")).toBe(join("/home/user/project", ".opencode"));
+    expect(getEffectiveConfigRoot("/home/user/project")).toBe(
+      join("/home/user/project", ".opencode"),
+    );
   });
 
   it("ignores whitespace-only OPENCODE_CONFIG_DIR", () => {
