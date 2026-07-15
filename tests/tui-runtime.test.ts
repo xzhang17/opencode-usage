@@ -1287,7 +1287,7 @@ describe("tui runtime helpers", () => {
 
     expect(bottom).toEqual({
       status: "ready",
-      announcementText: "Notice: Maintainer announcement available. Run /quota_announcements.",
+      announcementText: "Notice: Maintainer announcement available. Run /usage_announcements.",
       compact: { status: "disabled" },
     });
     expect(collectQuotaRenderData).not.toHaveBeenCalled();
@@ -1340,7 +1340,7 @@ describe("tui runtime helpers", () => {
 
     expect(bottom).toEqual({
       status: "ready",
-      announcementText: "Notice: Maintainer announcement available. Run /quota_announcements.",
+      announcementText: "Notice: Maintainer announcement available. Run /usage_announcements.",
       compact: { status: "disabled" },
     });
     expect(collectQuotaRenderData).not.toHaveBeenCalled();
@@ -1449,7 +1449,7 @@ describe("tui runtime helpers", () => {
 
     expect(bottom).toEqual({
       status: "ready",
-      announcementText: "Notice: Maintainer announcement available. Run /quota_announcements.",
+      announcementText: "Notice: Maintainer announcement available. Run /usage_announcements.",
       compact: { status: "ready", text: "Home compact quota" },
     });
     expect(collectQuotaRenderData).toHaveBeenCalledOnce();

@@ -43,7 +43,7 @@ describe("package manifest compatibility", () => {
   it("ships explicit server, tui, and init bin entrypoints for OpenCode", () => {
     expect(pkg.main).toBe("./dist/index.js");
     expect(pkg.bin).toEqual({
-      "opencode-quota": "./dist/bin/opencode-quota.js",
+      "opencode-usage": "./dist/bin/opencode-quota.js",
     });
     expect(pkg["oc-plugin"]).toEqual(["server", "tui"]);
     expect(pkg.dependencies?.["@clack/prompts"]).toBeTruthy();

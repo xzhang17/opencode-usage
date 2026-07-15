@@ -585,7 +585,7 @@ describe("buildQuotaStatusReport", () => {
     });
 
     expect(report).toMatch(
-      /^# Quota Status \(opencode-quota v1\.2\.3\) \(\/quota_status\) \d{2}:\d{2} \d{2}\/\d{2}\/\d{4}\n\n/,
+      /^# Usage Status \(opencode-usage v1\.2\.3\) \(\/usage_status\) \d{2}:\d{2} \d{2}\/\d{2}\/\d{4}\n\n/,
     );
     expect(report).toContain(
       "- opencode_dirs: data=/tmp/data config=/tmp/config cache=/tmp/cache state=/tmp/state",
@@ -1677,7 +1677,7 @@ describe("buildQuotaStatusReport", () => {
 
     const [heading, blank, ...body] = report.split("\n");
     expect(heading).toMatch(
-      /^# Quota Status \(opencode-quota v1\.2\.3\) \(\/quota_status\) \d{2}:\d{2} \d{2}\/\d{2}\/\d{4}$/,
+      /^# Usage Status \(opencode-usage v1\.2\.3\) \(\/usage_status\) \d{2}:\d{2} \d{2}\/\d{2}\/\d{4}$/,
     );
     expect(blank).toBe("");
 

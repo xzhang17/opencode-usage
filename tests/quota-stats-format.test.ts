@@ -595,7 +595,7 @@ describe("formatQuotaStatsReport (markdown)", () => {
       | -------- | --------- | ----------------------------------------------- | -----: | ---: |
       | OpenCode | bar-model | openai/bar-model (candidates: openai,anthropic) |     30 |    1 |
 
-      Run /quota_status to see the full pricing diagnostics report."
+      Run /usage_status to see the full pricing diagnostics report."
     `);
   });
 });

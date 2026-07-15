@@ -18,7 +18,7 @@ import {
 
 const TEST_RUNTIME_ROOT = "/tmp/opencode-quota-plugin-announcements-tests";
 const ANNOUNCEMENT_TOAST_MESSAGE =
-  "Notice: Maintainer announcement available. Run /quota_announcements.";
+  "Notice: Maintainer announcement available. Run /usage_announcements.";
 
 const TEST_ANNOUNCEMENT = vi.hoisted(() => ({
   id: "copilot-credits",
@@ -72,7 +72,7 @@ vi.mock("../src/lib/maintainer-announcements.js", () => ({
   formatMaintainerAnnouncementHomeCountLine: (activeCount: number) => {
     if (activeCount <= 0) return "";
     if (activeCount === 1) return ANNOUNCEMENT_TOAST_MESSAGE;
-    return `Notice: ${activeCount} maintainer announcements available. Run /quota_announcements.`;
+    return `Notice: ${activeCount} maintainer announcements available. Run /usage_announcements.`;
   },
   getMaintainerAnnouncementsSummary: announcementMocks.getMaintainerAnnouncementsSummary,
 }));
@@ -193,7 +193,7 @@ describe("maintainer announcement plugin integration", () => {
     await rm(TEST_RUNTIME_ROOT, { recursive: true, force: true });
   });
 
-  it("registers and builds the no-arg /quota_announcements deterministic output", async () => {
+  it("registers and builds the no-arg /usage_announcements deterministic output", async () => {
     const provider = {
       id: "copilot",
       isAvailable: vi.fn().mockResolvedValue(true),
@@ -274,7 +274,7 @@ describe("maintainer announcement plugin integration", () => {
     );
   });
 
-  it("rejects /quota_announcements arguments", async () => {
+  it("rejects /usage_announcements arguments", async () => {
     const { QuotaToastPlugin } = await import("../src/plugin.js");
     const client = createClient();
     await QuotaToastPlugin({ client } as any);
@@ -283,7 +283,7 @@ describe("maintainer announcement plugin integration", () => {
       client,
       arguments: "show copilot-credits",
     })).resolves.toBe(
-      "Invalid arguments for /quota_announcements\n\nThis command does not accept arguments.\n\nUsage: /quota_announcements",
+      "Invalid arguments for /usage_announcements\n\nThis command does not accept arguments.\n\nUsage: /usage_announcements",
     );
   });
 
@@ -309,7 +309,7 @@ describe("maintainer announcement plugin integration", () => {
     await flushMaintainerFallbackWork();
     expect(client.tui.showToast).toHaveBeenCalledTimes(1);
     expect(getToastMessage(client)).toContain("Copilot");
-    expect(getToastMessage(client)).not.toContain("/quota_announcements");
+    expect(getToastMessage(client)).not.toContain("/usage_announcements");
   });
 
   it("shows one count-only fallback toast after the first visible quota toast without TUI", async () => {

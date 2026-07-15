@@ -165,10 +165,10 @@ describe("maintainer announcements", () => {
   it("formats PRD-exact count-only TUI home lines", () => {
     expect(formatMaintainerAnnouncementHomeCountLine(0)).toBe("");
     expect(formatMaintainerAnnouncementHomeCountLine(1)).toBe(
-      "Notice: Maintainer announcement available. Run /quota_announcements.",
+      "Notice: Maintainer announcement available. Run /usage_announcements.",
     );
     expect(formatMaintainerAnnouncementHomeCountLine(3)).toBe(
-      "Notice: 3 maintainer announcements available. Run /quota_announcements.",
+      "Notice: 3 maintainer announcements available. Run /usage_announcements.",
     );
   });
 });

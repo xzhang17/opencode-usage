@@ -91,7 +91,7 @@ describe("opencode-quota bin", () => {
 
     expect(code).toBe(0);
     expect(log).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("opencode-quota show"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("opencode-usage show"));
     log.mockRestore();
   });
 
@@ -103,7 +103,7 @@ describe("opencode-quota bin", () => {
 
     expect(code).toBe(1);
     expect(log).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("opencode-quota show"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("opencode-usage show"));
     log.mockRestore();
   });
 
@@ -115,7 +115,7 @@ describe("opencode-quota bin", () => {
 
     expect(code).toBe(1);
     expect(log).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
-    expect(log).toHaveBeenCalledWith(expect.stringContaining("opencode-quota show"));
+    expect(log).toHaveBeenCalledWith(expect.stringContaining("opencode-usage show"));
     log.mockRestore();
   });
 
