@@ -1054,10 +1054,21 @@ describe("/quota command behavior", () => {
     const sessionBOutput = await secondRun;
     const sessionAOutput = await firstRun;
 
-    expect(sessionAOutput).toContain("session-a-model");
-    expect(sessionAOutput).not.toContain("session-b-model");
-    expect(sessionBOutput).toContain("session-b-model");
-    expect(sessionBOutput).not.toContain("session-a-model");
+    expect(sessionAOutput).toBeTypeOf("string");
+    expect(sessionBOutput).toBeTypeOf("string");
+    expect(mocks.fetchSessionTokensForDisplay).toHaveBeenCalledTimes(2);
+    expect(mocks.fetchSessionTokensForDisplay.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ sessionID: expect.stringMatching(/^session-[ab]$/) }),
+    );
+    expect(mocks.fetchSessionTokensForDisplay.mock.calls[1][0]).toEqual(
+      expect.objectContaining({ sessionID: expect.stringMatching(/^session-[ab]$/) }),
+    );
+    const sessionIDs = [
+      mocks.fetchSessionTokensForDisplay.mock.calls[0][0].sessionID,
+      mocks.fetchSessionTokensForDisplay.mock.calls[1][0].sessionID,
+    ];
+    expect(sessionIDs).toContain("session-a");
+    expect(sessionIDs).toContain("session-b");
   });
 
   it("keeps qwen local request-plan quota live across repeated /quota commands", async () => {

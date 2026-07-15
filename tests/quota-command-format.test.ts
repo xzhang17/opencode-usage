@@ -63,7 +63,7 @@ describe("formatQuotaCommand", () => {
     });
 
     const lines = out.split("\n");
-    expect(lines[0]).toMatch(/^# Quota \(\/quota\) \d{2}:\d{2} \d{2}\/\d{2}\/\d{4}$/);
+    expect(lines[0]).toMatch(/^# Usage \(\/usage\) \d{2}:\d{2} \d{2}\/\d{2}\/\d{4}$/);
     expect(lines[1]).toBe("");
     expect(lines.slice(2).join("\n")).toMatchInlineSnapshot(`
       "→ [Copilot] (personal)
@@ -78,10 +78,6 @@ describe("formatQuotaCommand", () => {
 
       → [Google Antigravity] (acct)
         Claude:          ████████████░░░░░░  67% left (resets in 3h)
-
-      Session input/output tokens
-        openai/gpt-5          1.2K (456) in     567 out
-        github-copilot/clau…     987 in     654 out
 
       Z.ai: Authentication expired"
     `);

@@ -4,9 +4,7 @@
  * This is intentionally more verbose than the toast:
  * - Always shows reset countdown when available
  * - Uses one line per limit, grouped under provider headers
- * - Includes session token summary (input/output per model)
  */
-
 import type { QuotaToastEntry, QuotaToastError, SessionTokensData } from "./entries.js";
 import type { PercentDisplayMode } from "./types.js";
 import { isValueEntry } from "./entries.js";
@@ -14,7 +12,6 @@ import { bar, formatDisplayedPercentLabel, padRight, resolveDisplayedPercent } f
 import { formatGroupedHeader } from "./grouped-header-format.js";
 import { groupQuotaEntries } from "./grouped-entry-normalization.js";
 import { renderPlainTextReport, type ReportDocument, type ReportSection } from "./report-document.js";
-import { buildSessionTokenSectionModel } from "./session-tokens-format.js";
 
 /**
  * Format reset time in compact form (different from toast countdown).
@@ -83,15 +80,6 @@ function buildQuotaCommandDocument(params: {
       blocks: [{ kind: "lines", lines }],
     };
   });
-
-  const tokenSection = buildSessionTokenSectionModel(params.sessionTokens);
-  if (tokenSection) {
-    sections.push({
-      id: "session-tokens",
-      title: tokenSection.heading,
-      blocks: [{ kind: "lines", lines: tokenSection.lines }],
-    });
-  }
 
   if (params.errors.length > 0) {
     sections.push({
