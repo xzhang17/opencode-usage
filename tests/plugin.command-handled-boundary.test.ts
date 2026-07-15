@@ -127,26 +127,15 @@ describe("plugin command handled boundary", () => {
     await rm(TEST_RUNTIME_ROOT, { recursive: true, force: true });
   });
 
-  it("registers deterministic slash commands for the server/web command surface", async () => {
+  it("does not add server commands to the TUI command surface", async () => {
     const client = createClient();
     const hooks = await loadPluginHooks(client);
     const cfg: { command?: Record<string, { template: string; description: string }> } = {};
-    const { QUOTA_DIALOG_COMMANDS } = await import("../src/lib/quota-dialog-commands.js");
 
     await hooks.config?.(cfg as any);
 
     expect(hooks["command.execute.before"]).toBeDefined();
-    expect(cfg.command).toBeDefined();
-    expect(QUOTA_DIALOG_COMMANDS).toHaveLength(12);
-    expect(new Set(QUOTA_DIALOG_COMMANDS.map((spec) => spec.id)).size).toBe(12);
-    expect(new Set(QUOTA_DIALOG_COMMANDS.map((spec) => spec.slashName)).size).toBe(12);
-    expect(Object.keys(cfg.command ?? {})).toHaveLength(12);
-    for (const spec of QUOTA_DIALOG_COMMANDS) {
-      expect(cfg.command?.[spec.slashName]).toEqual({
-        template: `/${spec.slashName}`,
-        description: spec.description,
-      });
-    }
+    expect(cfg.command).toBeUndefined();
     expect(client.session.prompt).not.toHaveBeenCalled();
   });
 

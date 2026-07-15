@@ -121,21 +121,14 @@ describe("/tokens_session_all command", () => {
     ]);
   });
 
-  it("registers /tokens_session_all in server plugin config", async () => {
+  it("keeps /tokens_session_all out of the TUI command surface", async () => {
     const { QuotaToastPlugin } = await import("../src/plugin.js");
-    const { QUOTA_DIALOG_COMMANDS } = await import("../src/lib/quota-dialog-commands.js");
-    const tokensSessionAllCommand = QUOTA_DIALOG_COMMANDS.find(
-      (command) => command.id === "tokens_session_all",
-    );
     const hooks = await QuotaToastPlugin({ client: createClient() } as any);
     const cfg: { command?: Record<string, { template: string; description: string }> } = {};
 
     await hooks.config?.(cfg as any);
 
-    expect(cfg.command?.tokens_session_all).toEqual({
-      template: `/${tokensSessionAllCommand?.slashName}`,
-      description: tokensSessionAllCommand?.description,
-    });
+    expect(cfg.command?.tokens_session_all).toBeUndefined();
   });
 
   it("aggregates the current session tree for /tokens_session_all", async () => {

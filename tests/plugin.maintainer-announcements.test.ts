@@ -193,7 +193,7 @@ describe("maintainer announcement plugin integration", () => {
     await rm(TEST_RUNTIME_ROOT, { recursive: true, force: true });
   });
 
-  it("registers and builds the no-arg /usage_announcements deterministic output", async () => {
+  it("keeps /usage_announcements out of TUI commands but builds its internal output", async () => {
     const provider = {
       id: "copilot",
       isAvailable: vi.fn().mockResolvedValue(true),
@@ -211,10 +211,8 @@ describe("maintainer announcement plugin integration", () => {
     const cfg: any = {};
 
     await hooks.config?.(cfg);
-    expect(cfg.command?.usage_announcements).toEqual({
-      template: `/${announcementCommand?.slashName}`,
-      description: announcementCommand?.description,
-    });
+    expect(announcementCommand?.slashName).toBe("usage_announcements");
+    expect(cfg.command?.usage_announcements).toBeUndefined();
 
     const output = await buildAnnouncementsDialogOutput({ client });
 

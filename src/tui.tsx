@@ -13,6 +13,7 @@ import type {
   HomeBottomState,
   SidebarPanelState,
 } from "./lib/tui-panel-state.js";
+import type { SessionTokenError } from "./lib/quota-status.js";
 
 import {
   getCompactStatusText,
@@ -25,11 +26,20 @@ import {
 } from "./lib/tui-panel-state.js";
 import { getSidebarBodyLineColor } from "./lib/tui-line-style.js";
 import {
+  createTuiQuotaClient,
+  getTuiRuntimeRootHints,
+  getTuiSessionModelMeta,
   loadTuiHomeBottomStatus,
   loadTuiSessionQuotaSurfaces,
+  normalizeTuiSessionID,
   resolveTuiSurfaceRegistration,
   writeTuiQuotaExportIfEnabled,
 } from "./lib/tui-runtime.js";
+import {
+  QUOTA_DIALOG_COMMANDS,
+  buildQuotaDialogCommandOutput,
+  type QuotaDialogCommandId,
+} from "./lib/quota-dialog-commands.js";
 
 const id = "opencode-usage";
 // Place Quota near the top so variable-height built-in sections
@@ -41,6 +51,11 @@ const EVENT_REFRESH_DELAYS_MS = [150, 600] as const;
 const MOUNT_RECOVERY_DELAYS_MS = [500, 1_500, 4_000] as const;
 
 type TuiPromptRefCallback = (ref: TuiPromptRef | undefined) => void;
+type DialogSize = "medium" | "large" | "xlarge";
+
+type QuotaDialogCommandState = {
+  lastSessionTokenError?: SessionTokenError;
+};
 type SessionQuotaResource = {
   sessionID: string;
   sidebar: () => SidebarPanelState;
@@ -459,6 +474,131 @@ function HomeBottomView(props: { api: TuiPluginApi }) {
   );
 }
 
+function getActiveTuiSessionID(api: TuiPluginApi): string | undefined {
+  const route = (api as any).route?.current;
+  if (route?.name !== "session" && route?.type !== "session") return undefined;
+
+  return normalizeTuiSessionID(
+    route.params?.sessionID ?? route.params?.session_id ?? route.params?.id ?? route.sessionID,
+  );
+}
+
+function replaceDialog(api: TuiPluginApi, size: DialogSize, render: () => JSX.Element): void {
+  const dialog = (api as any).ui?.dialog;
+  dialog?.replace?.(render);
+  dialog?.setSize?.(size);
+}
+
+function CommandLoadingDialog(props: { api: TuiPluginApi; title: string }) {
+  return (
+    <box gap={1}>
+      <text fg={props.api.theme.current.text}>
+        <b>{props.title}</b>
+      </text>
+      <text fg={props.api.theme.current.textMuted}>Loading deterministic local output...</text>
+    </box>
+  );
+}
+
+function CommandOutputDialog(props: { api: TuiPluginApi; title: string; output: string }) {
+  const lines = () => props.output.split("\n");
+  const bodyHeight = () => Math.min(18, Math.max(6, lines().length));
+  return (
+    <box gap={1} width="100%" flexGrow={1} paddingLeft={2} paddingRight={2} paddingBottom={1}>
+      <text fg={props.api.theme.current.text}>
+        <b>{props.title}</b>
+      </text>
+      <scrollbox width="100%" flexGrow={1} minHeight={bodyHeight()} maxHeight={18}>
+        <box gap={0} width="100%" minWidth={0}>
+          {lines().map((line) => (
+            <text fg={props.api.theme.current.text} wrapMode="word" width="100%">
+              {line || " "}
+            </text>
+          ))}
+        </box>
+      </scrollbox>
+      <text fg={props.api.theme.current.textMuted}>esc closes</text>
+    </box>
+  );
+}
+
+function CommandErrorDialog(props: { api: TuiPluginApi; title: string; error: unknown }) {
+  const message = props.error instanceof Error ? props.error.message : String(props.error);
+  return (
+    <box gap={1}>
+      <text fg={props.api.theme.current.text}>
+        <b>{props.title}</b>
+      </text>
+      <text fg={props.api.theme.current.text}>OpenCode Usage command failed.</text>
+      <text fg={props.api.theme.current.textMuted} wrapMode="none">
+        {message || "Unknown error"}
+      </text>
+      <text fg={props.api.theme.current.textMuted}>esc closes</text>
+    </box>
+  );
+}
+
+async function runUsageDialogCommand(
+  api: TuiPluginApi,
+  command: QuotaDialogCommandId,
+  state: QuotaDialogCommandState,
+): Promise<void> {
+  const spec = QUOTA_DIALOG_COMMANDS.find((item) => item.id === command)!;
+  const sessionID = getActiveTuiSessionID(api);
+  replaceDialog(api, spec.dialogSize, () => <CommandLoadingDialog api={api} title={spec.title} />);
+
+  try {
+    const result = await buildQuotaDialogCommandOutput({
+      command,
+      client: createTuiQuotaClient(api),
+      roots: getTuiRuntimeRootHints(api),
+      sessionID,
+      resolveSessionMeta: (id) => getTuiSessionModelMeta(api, id),
+      lastSessionTokenError: state.lastSessionTokenError,
+      setLastSessionTokenError: (error) => {
+        state.lastSessionTokenError = error;
+      },
+    });
+
+    if (result.state === "noop") {
+      (api as any).ui?.dialog?.clear?.();
+      return;
+    }
+
+    replaceDialog(api, result.dialogSize, () => (
+      <CommandOutputDialog api={api} title={result.title} output={result.output} />
+    ));
+  } catch (error) {
+    replaceDialog(api, "large", () => <CommandErrorDialog api={api} title={spec.title} error={error} />);
+    (api as any).ui?.toast?.({ variant: "error", message: "OpenCode Usage command failed" });
+  }
+}
+
+function registerUsageDialogCommand(api: TuiPluginApi): void {
+  const keymap = (api as any).keymap;
+  if (!keymap?.registerLayer) return;
+
+  const spec = QUOTA_DIALOG_COMMANDS.find((item) => item.id === "quota")!;
+  const state: QuotaDialogCommandState = {};
+  const dispose = keymap.registerLayer({
+    commands: [
+      {
+        namespace: "palette",
+        name: "opencode-usage.quota",
+        title: spec.title,
+        desc: spec.description,
+        category: "OpenCode Usage",
+        slashName: spec.slashName,
+        run() {
+          void runUsageDialogCommand(api, spec.id, state);
+        },
+      },
+    ],
+  });
+
+  if (typeof dispose === "function") api.lifecycle.onDispose(dispose);
+}
+
 function registerSidebarSlots(api: TuiPluginApi): void {
   api.slots.register({
     order: SIDEBAR_ORDER,
@@ -471,6 +611,8 @@ function registerSidebarSlots(api: TuiPluginApi): void {
 }
 
 const tui: TuiPlugin = async (api) => {
+  registerUsageDialogCommand(api);
+
   let surfaceRegistration;
   try {
     surfaceRegistration = await resolveTuiSurfaceRegistration(api);

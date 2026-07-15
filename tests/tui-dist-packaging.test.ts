@@ -45,10 +45,11 @@ describe("tui dist packaging", () => {
     expect(source).toContain("loadTuiSessionQuotaSurfaces");
     expect(source).toContain("resolveTuiSurfaceRegistration");
     expect(source).toContain("const pluginModule");
+    expect(source).toContain("registerUsageDialogCommand");
+    expect(source).toContain("CommandOutputDialog");
+    expect(source).toContain("buildQuotaDialogCommandOutput");
     expect(source).not.toContain("registerQuotaDialogCommands");
-    expect(source).not.toContain("CommandOutputDialog");
     expect(source).not.toContain("TokensBetweenPromptDialog");
-    expect(source).not.toContain("buildQuotaDialogCommandOutput");
     expect(source).not.toContain("jsx-dev-runtime");
   });
 

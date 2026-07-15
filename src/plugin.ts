@@ -56,7 +56,6 @@ import {
 } from "./lib/maintainer-announcements.js";
 import { handled } from "./lib/command-handled.js";
 import {
-  QUOTA_DIALOG_COMMANDS,
   buildQuotaDialogCommandOutput,
   resolveQuotaDialogCommandIdBySlashName,
   type QuotaDialogCommandId,
@@ -401,17 +400,6 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
       configRoot,
       fallbackDirectory: cwd,
     };
-  }
-
-  function registerDeterministicSlashCommands(cfg: PluginConfigInput): void {
-    cfg.command ??= {};
-
-    for (const spec of QUOTA_DIALOG_COMMANDS) {
-      cfg.command[spec.slashName] = {
-        template: `/${spec.slashName}`,
-        description: spec.description,
-      };
-    }
   }
 
   async function handleDeterministicSlashCommand(
@@ -1300,7 +1288,6 @@ export const QuotaToastPlugin: Plugin = async ({ client }) => {
   return {
     config: async (input: unknown) => {
       const cfg = input as PluginConfigInput;
-      registerDeterministicSlashCommands(cfg);
 
       // Fix zero-width space mismatch between default_agent and agent keys.
       // Some plugins remap agent keys with invisible Unicode prefixes for sort

@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://github.com/slkiser/opencode-quota">
+  <a href="https://github.com/xzhang17/opencode-usage/tree/opencode-customized">
     <picture>
       <source srcset="opencode-quota-logo-dark.svg" media="(prefers-color-scheme: dark)">
       <source srcset="opencode-quota-logo-light.svg" media="(prefers-color-scheme: light)">
@@ -9,30 +9,49 @@
 </p>
 <p align="center">Quota, usage, and token visibility for OpenCode and CLI.</p>
 <p align="center">
-  <a href="https://www.npmjs.com/package/@slkiser/opencode-quota"><img alt="npm" src="https://img.shields.io/npm/v/%40slkiser%2Fopencode-quota?style=flat-square" /></a>
-  <a href="https://www.npmjs.com/package/@slkiser/opencode-quota"><img alt="npm downloads" src="https://img.shields.io/npm/dm/%40slkiser%2Fopencode-quota?style=flat-square" /></a>
-  <a href="https://github.com/slkiser/opencode-quota/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/slkiser/opencode-quota/ci.yml?style=flat-square&branch=main&label=CI" /></a>
+  <a href="https://github.com/xzhang17/opencode-usage/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/xzhang17/opencode-usage/ci.yml?style=flat-square&branch=opencode-customized&label=CI" /></a>
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" /></a>
 </p>
 
-[![OpenCode Quota sidebar](https://shawnkiser.com/opencode-quota/opencode-quota-sidebar.webp)](https://github.com/slkiser/opencode-quota)
+[![OpenCode Quota sidebar](https://shawnkiser.com/opencode-quota/opencode-quota-sidebar.webp)](https://github.com/xzhang17/opencode-usage/tree/opencode-customized)
 
 ---
 
 ## Quick start
 
+Clone and build the customized branch in the global OpenCode plugin directory:
+
 ```bash
-npx @slkiser/opencode-quota init
+git clone --branch opencode-customized https://github.com/xzhang17/opencode-usage.git ~/.config/opencode/plugins/opencode-usage
+cd ~/.config/opencode/plugins/opencode-usage
+pnpm install --frozen-lockfile
+pnpm run build
+```
+
+Add the server entry to `~/.config/opencode/opencode.json`:
+
+```json
+{
+  "plugin": ["./plugins/opencode-usage/index.js"]
+}
+```
+
+Add the local TUI entry to `~/.config/opencode/tui.json`:
+
+```json
+{
+  "plugin": ["./plugins/opencode-usage/tui.tsx"]
+}
 ```
 
 > [!IMPORTANT]
 > OpenCode `>= 1.4.3` and Node.js `>= 20` are required.
 
 1. Restart OpenCode.
-2. Run `/quota` in OpenCode, or use `opencode-quota show` from your terminal.
+2. Run `/usage` in OpenCode, or use `opencode-usage show` from your terminal.
 3. If you enabled the Sidebar panel, open the session sidebar and look for `Quota`.
 4. If you enabled Compact status line, look for the home-bottom quota line and the chat/session prompt quota line.
-5. If something looks wrong, run `/quota_status` in OpenCode or see [Troubleshooting](docs/readme/troubleshooting.md).
+5. If something looks wrong, see [Troubleshooting](docs/readme/troubleshooting.md).
 
 ## Update OpenCode Quota safely
 
@@ -79,44 +98,33 @@ Use `--dry-run` to preview without changing anything. Use `--yes` only for expli
 
 More ways to use it:
 
-- Terminal checks with `opencode-quota show` before or without opening OpenCode
+- Terminal checks with `opencode-usage show` before or without opening OpenCode
 - JSON output for scripts, status bars, CI checks, and external tools
-- Deterministic inline slash-command output shared by TUI and Desktop/server
+- Deterministic local `/usage` output in the TUI without model invocation
 - Provider diagnostics for auth, quota sources, pricing, and bundled maintainer announcements
 
 See [Configuration](docs/readme/configuration.md) for UI options and [Manual install](docs/readme/manual-install.md) for setup details.
 
 ## Commands
 
-### Core slash commands
+### TUI command
 
-The server plugin registers each command once for TUI and Desktop/server. Each command injects one ignored, no-reply inline message, does not call the model, and does not add output to model context. `/tokens_between` requires both dates inline and does not open a prompt dialog.
+The customized TUI registers only one command. It renders deterministic local output without calling the model or adding output to model context.
 
-| Command                                 | Use when                                                             |
-| --------------------------------------- | -------------------------------------------------------------------- |
-| `/quota`                                | Show your quota and usage details                                    |
-| `/quota_status`                         | Diagnose setup, auth, provider detection, pricing, and announcements |
-| `/quota_announcements`                  | Read active bundled maintainer notices                               |
-| `/pricing_refresh`                      | Refresh local runtime pricing from `models.dev`                      |
-| `/tokens_today`                         | Show tokens used today                                               |
-| `/tokens_daily`                         | Show tokens used in the last 24 hours                                |
-| `/tokens_weekly`                        | Show tokens used in the last 7 days                                  |
-| `/tokens_monthly`                       | Show tokens used in the last 30 days, including pricing              |
-| `/tokens_all`                           | Show tokens used across all local history                            |
-| `/tokens_session`                       | Show tokens used in the current session                              |
-| `/tokens_session_all`                   | Show current session plus descendant sessions                        |
-| `/tokens_between YYYY-MM-DD YYYY-MM-DD` | Show tokens used between two dates                                   |
+| Command  | Use when                          |
+| -------- | --------------------------------- |
+| `/usage` | Show subscription usage and quota |
 
 ### CLI commands
 
 | Command                                        | Use when                                                              |
 | ---------------------------------------------- | --------------------------------------------------------------------- |
-| `opencode-quota update`                        | Preview and confirm a scoped OpenCode Quota update                       |
-| `opencode-quota update --dry-run`              | Preview exact config and cache targets without changing them          |
-| `opencode-quota show`                          | Check quota from your terminal                                        |
-| `opencode-quota show --provider <id>`          | Check one provider only, such as `copilot` or `openai`                |
-| `opencode-quota show --json`                   | Print JSON for scripts, status bars, and other tools                  |
-| `opencode-quota show --json --threshold <pct>` | Fail the command when cached quota drops below your chosen percentage |
+| `opencode-usage update`                        | Preview and confirm a scoped OpenCode Usage update                    |
+| `opencode-usage update --dry-run`              | Preview exact config and cache targets without changing them          |
+| `opencode-usage show`                          | Check quota from your terminal                                        |
+| `opencode-usage show --provider <id>`          | Check one provider only, such as `copilot` or `openai`                |
+| `opencode-usage show --json`                   | Print JSON for scripts, status bars, and other tools                  |
+| `opencode-usage show --json --threshold <pct>` | Fail the command when cached quota drops below your chosen percentage |
 
 ## Providers
 

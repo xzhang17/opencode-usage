@@ -13,8 +13,12 @@ const {
 }));
 
 vi.mock("../src/lib/tui-runtime.js", () => ({
+  createTuiQuotaClient: vi.fn(),
+  getTuiRuntimeRootHints: vi.fn(),
+  getTuiSessionModelMeta: vi.fn(),
   loadTuiHomeBottomStatus,
   loadTuiSessionQuotaSurfaces,
+  normalizeTuiSessionID: (value: unknown) => (typeof value === "string" ? value : undefined),
   resolveTuiSurfaceRegistration,
 }));
 
@@ -174,7 +178,7 @@ describe("tui plugin smoke", () => {
     vi.useRealTimers();
   });
 
-  it("does not register TUI keymap commands or open native dialogs", async () => {
+  it("registers the local /usage command without opening its dialog eagerly", async () => {
     const plugin = await loadTuiModule();
     const { api, keymapLayers, dialog } = createApi();
 
@@ -193,8 +197,15 @@ describe("tui plugin smoke", () => {
 
     await plugin.tui(api as any, undefined, {} as any);
 
-    expect(api.keymap.registerLayer).not.toHaveBeenCalled();
-    expect(keymapLayers).toHaveLength(0);
+    expect(api.keymap.registerLayer).toHaveBeenCalledOnce();
+    expect(keymapLayers).toHaveLength(1);
+    expect(keymapLayers[0]?.commands).toEqual([
+      expect.objectContaining({
+        name: "opencode-usage.quota",
+        slashName: "usage",
+        category: "OpenCode Usage",
+      }),
+    ]);
     expect(dialog.replace).not.toHaveBeenCalled();
     expect(dialog.setSize).not.toHaveBeenCalled();
     expect(api.ui.DialogPrompt).not.toHaveBeenCalled();

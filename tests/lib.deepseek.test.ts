@@ -9,6 +9,18 @@ vi.mock("../src/lib/opencode-auth.js", () => ({
   getAuthPaths: vi.fn(() => []),
 }));
 
+vi.mock("../src/lib/opencode-runtime-paths.js", () => ({
+  getOpencodeRuntimeDirCandidates: () => {
+    const root = process.env.XDG_CONFIG_HOME ?? tmpdir();
+    return {
+      dataDirs: [`${root}/opencode`],
+      configDirs: [`${root}/opencode`],
+      cacheDirs: [`${root}/opencode`],
+      stateDirs: [`${root}/opencode`],
+    };
+  },
+}));
+
 describe("queryDeepSeekBalance", () => {
   const originalEnv = process.env;
   let tempDir: string;

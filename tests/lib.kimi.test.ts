@@ -168,6 +168,22 @@ describe("queryKimiQuota", () => {
     });
   });
 
+  it("reduces structured permission errors to their actionable code", async () => {
+    mockKimiAuthConfigured();
+    mockKimiHttpFailure(
+      403,
+      JSON.stringify({
+        code: "permission_denied",
+        details: [{ type: "common.error.v1.ErrorDetail", value: "opaque-detail" }],
+      }),
+    );
+
+    await expect(queryKimiQuota()).resolves.toEqual({
+      success: false,
+      error: "Kimi API error 403: permission denied",
+    });
+  });
+
   it("sanitizes thrown errors", async () => {
     mockKimiAuthConfigured();
     fetchMocks.fetchWithTimeout.mockRejectedValue(new Error("network error"));

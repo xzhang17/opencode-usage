@@ -149,6 +149,24 @@ function describeUnexpectedPayload(topLevelKeys: string[]): string {
   return `Unexpected response structure (keys: ${keys})`;
 }
 
+function formatKimiApiErrorDetail(text: string): string {
+  try {
+    const payload = JSON.parse(text) as unknown;
+    if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+      const record = payload as Record<string, unknown>;
+      const message = getNonEmptyString(record.message ?? record.error);
+      if (message) return sanitizeDisplaySnippet(message, 120);
+
+      const code = getNonEmptyString(record.code);
+      if (code) return sanitizeDisplaySnippet(code.replaceAll("_", " "), 120);
+    }
+  } catch {
+    // Non-JSON responses are displayed as a bounded plain-text snippet.
+  }
+
+  return sanitizeDisplaySnippet(text, 120);
+}
+
 function parseKimiUsagePayload(payload: Record<string, unknown>): {
   windows: KimiQuotaWindow[];
   topLevelKeys: string[];
@@ -229,7 +247,7 @@ async function fetchKimiQuotaFromUrl(
       const text = await resp.text();
       return {
         ok: false,
-        error: `Kimi API error ${resp.status}: ${sanitizeDisplaySnippet(text, 120)}`,
+        error: `Kimi API error ${resp.status}: ${formatKimiApiErrorDetail(text)}`,
       };
     }
 
